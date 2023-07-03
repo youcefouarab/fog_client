@@ -1,0 +1,61 @@
+SERVER:
+  # web server's IP address (no default, required)
+  IP: 172.16.100.114
+
+  # web server's REST API port (default is 8080)
+  API_PORT: 8080
+
+PROTOCOL:
+  # enable/disable printing detailed protocol messages on console (default is False)
+  VERBOSE: True
+
+DATABASE:
+  # absolute path to database (default is :memory:)
+  PATH: ':memory:'
+
+HOSTS:
+  # enable/disable DEFAULT host capacities (default is False)
+    # if True, <HOST_IP> capacities will be ignored for DEFAULT
+    # if False, <HOST_IP> capacities will be used
+  USE_DEFAULT: True
+  
+  # default host capacities (no defaults, required)
+  DEFAULT:
+    CPU: 1
+    # (in MB)
+    RAM: 1024
+    # (in GB)
+    DISK: 10
+    # (in Mbps)
+    EGRESS: 10
+    INGRESS: 10
+  
+  10.0.0.1:
+    CPU: 1
+    # (in MB)
+    RAM: 1024
+    # (in GB)
+    DISK: 10
+    # (in Mbps)
+    EGRESS: 10
+    INGRESS: 10
+  
+  10.0.0.2:
+    CPU: 1
+    # (in MB)
+    RAM: 1024
+    # (in GB)
+    DISK: 10
+    # (in Mbps)
+    EGRESS: 10
+    INGRESS: 10
+  
+  10.0.0.3:
+    CPU: 1
+    # (in MB)
+    RAM: 1024
+    # (in GB)
+    DISK: 10
+    # (in Mbps)
+    EGRESS: 10
+    INGRESS: 10
