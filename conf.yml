@@ -14,48 +14,10 @@ DATABASE:
   PATH: ':memory:'
 
 HOSTS:
-  # enable/disable DEFAULT host capacities (default is False)
-    # if True, <HOST_IP> capacities will be ignored for DEFAULT
-    # if False, <HOST_IP> capacities will be used
-  USE_DEFAULT: True
-  
-  # default host capacities (no defaults, required)
+  # default simulated host capacities (no defaults, required)
   DEFAULT:
     CPU: 1
-    # (in MB)
-    RAM: 1024
-    # (in GB)
-    DISK: 10
-    # (in Mbps)
-    EGRESS: 10
-    INGRESS: 10
-  
-  10.0.0.1:
-    CPU: 1
-    # (in MB)
-    RAM: 1024
-    # (in GB)
-    DISK: 10
-    # (in Mbps)
-    EGRESS: 10
-    INGRESS: 10
-  
-  10.0.0.2:
-    CPU: 1
-    # (in MB)
-    RAM: 1024
-    # (in GB)
-    DISK: 10
-    # (in Mbps)
-    EGRESS: 10
-    INGRESS: 10
-  
-  10.0.0.3:
-    CPU: 1
-    # (in MB)
-    RAM: 1024
-    # (in GB)
-    DISK: 10
-    # (in Mbps)
-    EGRESS: 10
-    INGRESS: 10
+    RAM: 1024  # (in MB)
+    DISK: 10  # (in GB)
+    EGRESS: 10  # (in Mbps)
+    INGRESS: 10  # (in Mbps)

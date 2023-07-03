@@ -28,6 +28,8 @@
 
 
 from os import getenv
+from os.path import dirname, abspath
+from yaml import safe_load
 from threading import Lock
 from random import uniform
 from time import sleep
@@ -39,119 +41,80 @@ from common import MY_IP, MONITOR
 import config
 
 
-# host capacities (offered resources)
-_host = 'DEFAULT'
-if getenv('HOSTS_USE_DEFAULT', False) == 'True':
-    _caps = getenv('HOSTS_DEFAULT', None)
-else:
-    _caps = getenv('HOSTS_' + MY_IP, None)
-    if _caps == None:
-        print(' *** WARNING in simulator: '
-              'HOSTS:' + MY_IP + ' capacities missing from conf.yml '
-              '(even though USE_DEFAULT is False). '
-              'Defaulting to HOSTS:DEFAULT.')
-        _caps = getenv('HOSTS_DEFAULT', None)
-    else:
-        _host = MY_IP
-if _caps == None:
-    print(' *** ERROR in simulator: '
-          'HOSTS:DEFAULT capacities missing from conf.yml.')
-    exit()
-_caps = eval(_caps)
-
-try:
-    CPU = int(_caps['CPU'])
-except:
-    print(' *** ERROR in simulator: '
-          'HOSTS:' + _host + ':CPU parameter invalid or missing from conf.yml.')
-    exit()
-
-try:
-    RAM = int(_caps['RAM'])
-except:
-    print(' *** ERROR in simulator: '
-          'HOSTS:' + _host + ':RAM parameter invalid or missing from conf.yml.')
-    exit()
-
-try:
-    DISK = int(_caps['DISK'])
-except:
-    print(' *** ERROR in simulator: '
-          'HOSTS:' + _host + ':DISK parameter invalid or missing from conf.yml.')
-    exit()
-
-try:
-    EGRESS = int(_caps['EGRESS'])
-except:
-    print(' *** ERROR in simulator: '
-          'HOSTS:' + _host + ':EGRESS parameter invalid or missing from conf.yml.')
-    exit()
-
-try:
-    INGRESS = int(_caps['INGRESS'])
-except:
-    print(' *** ERROR in simulator: '
-          'HOSTS:' + _host + ':INGRESS parameter invalid or missing from conf.yml.')
-    exit()
-
-# real monitoring config
 SIM_ON = getenv('SIMULATOR_ACTIVE', False) == 'True'
-my_iface = ''
 
-if not SIM_ON:
-    measures = MONITOR.measures
+if SIM_ON:
+    CAPS = dirname(dirname(abspath(__file__))) + '/' + MY_IP + '.yml'
+    try:
+        with open(CAPS, 'r') as f:
+            _caps = safe_load(f)
+        _host = MY_IP
+
+    except Exception as e:
+        print(' *** WARNING in simulator: '
+              'Simulator is active but no ' + MY_IP + '.yml file found. '
+              'Defaulting to HOSTS:DEFAULT capacities from conf.yml.')
+        _caps = getenv('HOSTS_DEFAULT', None)
+        if _caps == None:
+            print(' *** ERROR in simulator: '
+                  'HOSTS:DEFAULT capacities missing from conf.yml.')
+            exit()
+        _caps = eval(_caps)
+        _host = 'DEFAULT'
+
+    try:
+        CPU = int(_caps['CPU'])
+    except:
+        print(' *** ERROR in simulator: '
+              + _host + ':CPU parameter invalid or missing.')
+        exit()
+
+    try:
+        RAM = int(_caps['RAM'])
+    except:
+        print(' *** ERROR in simulator: '
+              + _host + ':RAM parameter invalid or missing.')
+        exit()
+
+    try:
+        DISK = int(_caps['DISK'])
+    except:
+        print(' *** ERROR in simulator: '
+              + _host + ':DISK parameter invalid or missing.')
+        exit()
+
+    try:
+        EGRESS = int(_caps['EGRESS'])
+    except:
+        print(' *** ERROR in simulator: '
+              + _host + ':EGRESS parameter invalid or missing.')
+        exit()
+
+    try:
+        INGRESS = int(_caps['INGRESS'])
+    except:
+        print(' *** ERROR in simulator: '
+              + _host + ':INGRESS parameter invalid or missing.')
+        exit()
+
+else:
+    # real monitoring config
+    MEASURES = MONITOR.measures
     wait = MONITOR.monitor_period
 
-    while 'cpu_count' not in measures:
+    while ('cpu_count' not in MEASURES
+           and 'memory_total' not in MEASURES
+           and 'disk_total' not in MEASURES):
         sleep(wait)
-    if CPU > measures['cpu_count']:
-        print(' *** ERROR in simulator: '
-              'Host cannot offer %d CPUs when it only has %d.' %
-              (CPU, measures['cpu_count']))
-        MONITOR.stop()
-        exit()
 
-    while 'memory_total' not in measures:
-        sleep(wait)
-    if RAM > measures['memory_total']:
-        print(' *** ERROR in simulator: '
-              'Host cannot offer %.2fMB of RAM when it only has %.2fMB.' %
-              (RAM, measures['memory_total']))
-        MONITOR.stop()
-        exit()
-
-    while 'disk_total' not in measures:
-        sleep(wait)
-    if DISK > measures['disk_total']:
-        print(' *** ERROR in simulator: '
-              'Host cannot offer %.2fGB of disk when it only has %.2fGB.' %
-              (DISK, measures['disk_total']))
-        MONITOR.stop()
-        exit()
-
+    my_iface = ''
     for iface in net_if_addrs():
         if iface != 'lo':
             if not my_iface:
                 my_iface = iface
-            while 'bandwidth_up' not in measures.get(iface, {}):
+            while ('bandwidth_up' not in MEASURES.get(iface, {})
+                   and 'bandwidth_down' not in MEASURES.get(iface, {})):
                 sleep(wait)
-            if EGRESS > measures[iface]['bandwidth_up']:
-                print(' *** ERROR in simulator: '
-                      'Interface %s cannot offer %.2fMbps of egress bandwidth '
-                      'when it only has %.2fMbps.' %
-                      (iface, EGRESS, measures[iface]['bandwidth_up']))
-                MONITOR.stop()
-                exit()
-
-            while 'bandwidth_down' not in measures.get(iface, {}):
-                sleep(wait)
-            if INGRESS > measures[iface]['bandwidth_down']:
-                print(' *** ERROR in simulator: '
-                      'Interface %s cannot offer %.2fMbps of ingress bandwidth '
-                      'when it only has %.2fMbps.' %
-                      (iface, INGRESS, measures[iface]['bandwidth_down']))
-                MONITOR.stop()
-                exit()
 
 # simulation variables of reserved resources
 _reserved = {
@@ -196,23 +159,18 @@ def get_resources(quiet: bool = False, _all: bool = False):
         and free ingress bandwidth.
     '''
     
-    cpu = CPU - _reserved['cpu']
-    _ram = RAM
-    if not SIM_ON and measures['memory_free'] < RAM:
-        _ram = measures['memory_free']
-    ram = _ram - _reserved['ram']
-    _disk = DISK
-    if not SIM_ON and measures['disk_free'] < DISK:
-        _disk = measures['disk_free']
-    disk = _disk - _reserved['disk']
-    _egress = EGRESS
-    if not SIM_ON and measures[my_iface]['bandwidth_up'] < EGRESS:
-        _egress = measures[my_iface]['bandwidth_up']
-    egress = _egress - _reserved['egress']
-    _ingress = INGRESS
-    if not SIM_ON and measures[my_iface]['bandwidth_down'] < INGRESS:
-        _ingress = measures[my_iface]['bandwidth_down']
-    ingress = _ingress - _reserved['ingress']
+    if SIM_ON:
+        cpu = CPU - _reserved['cpu']
+        ram = RAM - _reserved['ram']
+        disk = DISK - _reserved['disk']
+        egress = EGRESS - _reserved['egress']
+        ingress = INGRESS - _reserved['ingress']
+    else:
+        cpu = MEASURES['cpu_count'] - _reserved['cpu']
+        ram = MEASURES['memory_free'] - _reserved['ram']
+        disk = MEASURES['disk_free'] - _reserved['disk']
+        egress = MEASURES[my_iface]['bandwidth_up'] - _reserved['egress']
+        ingress = MEASURES[my_iface]['bandwidth_down'] - _reserved['ingress']
     if _all:
         print('Host\'s real capacities')
         if not SIM_ON:
@@ -220,11 +178,11 @@ def get_resources(quiet: bool = False, _all: bool = False):
                   '    TOTAL RAM  = %.2f MB\n'
                   '    FREE RAM   = %.2f MB\n'
                   '    TOTAL DISK = %.2f GB\n'
-                  '    FREE DISK  = %.2f GB\n' % (measures['cpu_count'],
-                                                  measures['memory_total'],
-                                                  measures['memory_free'],
-                                                  measures['disk_total'],
-                                                  measures['disk_free']))
+                  '    FREE DISK  = %.2f GB\n' % (MEASURES['cpu_count'],
+                                                  MEASURES['memory_total'],
+                                                  MEASURES['memory_free'],
+                                                  MEASURES['disk_total'],
+                                                  MEASURES['disk_free']))
         else:
             print('Simulation is active, so real monitoring is unavailable')
         print('\nAvailable for reservation\n'
@@ -267,7 +225,7 @@ def reserve_resources(req: Request):
         min_ram = req.get_min_ram()
         min_disk = req.get_min_disk()
         info('required(cpu=%d, ram=%.2fMB, disk=%.2fGB)' % (
-            min_cpu, min_ram, min_disk))
+             min_cpu, min_ram, min_disk))
         cpu, ram, disk, _, _ = get_resources(quiet=True)
         if cpu >= min_cpu and ram >= min_ram and disk >= min_disk:
             _reserved['cpu'] += min_cpu

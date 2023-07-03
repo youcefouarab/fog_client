@@ -1,0 +1,6 @@
+# simulated host capacities
+CPU: 1
+RAM: 1024  # (in MB)
+DISK: 10  # (in GB)
+EGRESS: 10  # (in Mbps)
+INGRESS: 10  # (in Mbps)
