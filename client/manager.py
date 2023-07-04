@@ -91,9 +91,8 @@ class Manager:
                     print(' *** Connecting', end='\r')
                 added, code = add_node(self.node)
                 if code == HTTP_EXISTS:
-                    self._connected = True
-                    if self.verbose:
-                        print(' *** Already connected')
+                    print(' *** ERROR: Already connected')
+                    exit()
                 else:
                     if added:
                         self._connected = True
