@@ -149,14 +149,15 @@ class Manager:
             except (KeyError, ValueError):
                 print(' *** ERROR in manager._build: '
                       'dpid kwarg invalid or missing.')
+                exit()
             type = NodeType(NodeType.SWITCH)
             label = ''
         else:
             id = kwargs.get('id', None)
-            if id == None:
+            if not id:
                 id = self._get_id()
             label = kwargs.get('label', None)
-            if label == None:
+            if not label:
                 label = self._get_label()
             type = NodeType(NodeType.SERVER)
         self.node = Node(id, True, type, label)
