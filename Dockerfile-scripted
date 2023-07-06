@@ -25,11 +25,11 @@ ENV SEQUENTIAL=True
 ENV DATA=data+program
 
 ENTRYPOINT ["sh", "-c", \
-            "MODE=${MODE}", "SERVER=${SERVER}", \
-            "CPU=${CPU}", "RAM=${RAM}", "DISK=${DISK}", \
-            "INGRESS=${INGRESS}", "EGRESS=${EGRESS}", \
-            "ID=${ID}", "LABEL=${LABEL}", "VERBOSE=${VERBOSE}", \
-            "COS_ID=${COS_ID}", "DELAY=${DELAY}", "INTERVAL=${INTERVAL}", \
-            "THREADS=${THREADS}", "LIMIT=${LIMIT}", "SEQUENTIAL=${SEQUENTIAL}", \
-            "DATA=${DATA}", \
-            "python", "examples/script.py"]
+            "MODE=${MODE} SERVER=${SERVER} \
+            CPU=${CPU} RAM=${RAM} DISK=${DISK} \
+            INGRESS=${INGRESS} EGRESS=${EGRESS} \
+            ID=${ID} LABEL=${LABEL} VERBOSE=${VERBOSE} \
+            COS_ID=${COS_ID} DELAY=${DELAY} INTERVAL=${INTERVAL} \
+            THREADS=${THREADS} LIMIT=${LIMIT} SEQUENTIAL=${SEQUENTIAL} \
+            DATA=${DATA} \
+            python examples/script.py"]
