@@ -24,15 +24,14 @@ from os import getenv
 from requests import get, post, put, delete, RequestException
 
 from model import Node
-from common import SERVER_IP, HTTP_EXISTS, HTTP_SUCCESS
-import config
+from common import SERVER_IP
+from consts import HTTP_EXISTS, HTTP_SUCCESS
 
 
 try:
     API_PORT = int(getenv('SERVER_API_PORT', None))
 except:
-    print(' *** ERROR in api: '
-          'SERVER:API_PORT parameter invalid or missing from conf.yml')
+    print(' *** ERROR in api: Server API port missing.')
     exit()
 
 

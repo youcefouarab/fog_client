@@ -37,7 +37,8 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 from simulator import (get_resources, check_resources, reserve_resources,
                        free_resources, execute)
 from model import CoS, Request, Attempt, Response
-from common import *
+from common import IS_RESOURCE
+from consts import *
 
 
 # protocol config
@@ -236,7 +237,7 @@ class MyProtocolAM(AnsweringMachine):
         state = my_proto.state
 
         # provider receives host request
-        if state == HREQ:
+        if state == HREQ and IS_RESOURCE:
             # if new request
             if _req_id not in _requests:
                 _requests[_req_id] = _Request(req_id)

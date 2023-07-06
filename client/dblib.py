@@ -27,8 +27,7 @@ from sqlite3 import connect
 from csv import writer
 
 from model import Model, CoS, Request, Attempt, Response
-from common import MY_IP, ROOT_PATH
-import config
+from consts import MY_IP, ROOT_PATH
 
 
 # table definitions
@@ -39,16 +38,8 @@ except:
           'definitions.sql file missing from client/data directory.')
     exit()
 
-# database config
-_db_path = getenv('DATABASE_PATH', None)
-if _db_path == None:
-    print(' *** WARNING in dblib: '
-          'DATABASE:PATH parameter invalid or missing from conf.yml. '
-          'Defaulting to in-memory database.')
-    _db_path = ':memory:'
-elif _db_path != ':memory:':
-    _db_path = '.'.join(_db_path.split('.').insert(-1, MY_IP))
-DB_PATH = _db_path
+# database file
+DB_PATH = ROOT_PATH + '/data/database.' + MY_IP + '.db'
 
 # table names
 _tables = {

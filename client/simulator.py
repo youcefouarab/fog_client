@@ -28,8 +28,6 @@
 
 
 from os import getenv
-from os.path import dirname, abspath
-from yaml import safe_load
 from threading import Lock
 from random import uniform
 from time import sleep
@@ -37,65 +35,56 @@ from psutil import net_if_addrs
 from logging import info
 
 from model import Request
-from common import MY_IP, MONITOR
-import config
+from common import MONITOR, IS_RESOURCE
 
 
 SIM_ON = getenv('SIMULATOR_ACTIVE', False) == 'True'
 
 if SIM_ON:
-    CAPS = dirname(dirname(abspath(__file__))) + '/' + MY_IP + '.yml'
     try:
-        with open(CAPS, 'r') as f:
-            _caps = safe_load(f)
-        _host = MY_IP
-
-    except Exception as e:
-        print(' *** WARNING in simulator: '
-              'Simulator is active but no ' + MY_IP + '.yml file found. '
-              'Defaulting to HOSTS:DEFAULT capacities from conf.yml.')
-        _caps = getenv('HOSTS_DEFAULT', None)
-        if _caps == None:
-            print(' *** ERROR in simulator: '
-                  'HOSTS:DEFAULT capacities missing from conf.yml.')
+        CPU = int(getenv('HOST_CPU'))
+    except:
+        if not IS_RESOURCE:
+            CPU = 0
+        else:
+            print(' *** ERROR in simulator: --cpu argument invalid or missing.')
             exit()
-        _caps = eval(_caps)
-        _host = 'DEFAULT'
 
     try:
-        CPU = int(_caps['CPU'])
+        RAM = int(getenv('HOST_RAM'))
     except:
-        print(' *** ERROR in simulator: '
-              + _host + ':CPU parameter invalid or missing.')
-        exit()
+        if not IS_RESOURCE:
+            RAM = 0
+        else:
+            print(' *** ERROR in simulator: --ram argument invalid or missing.')
+            exit()
 
     try:
-        RAM = int(_caps['RAM'])
+        DISK = int(getenv('HOST_DISK'))
     except:
-        print(' *** ERROR in simulator: '
-              + _host + ':RAM parameter invalid or missing.')
-        exit()
+        if not IS_RESOURCE:
+            DISK = 0
+        else:
+            print(' *** ERROR in simulator: --disk argument invalid or missing.')
+            exit()
 
     try:
-        DISK = int(_caps['DISK'])
+        EGRESS = int(getenv('HOST_EGRESS'))
     except:
-        print(' *** ERROR in simulator: '
-              + _host + ':DISK parameter invalid or missing.')
-        exit()
+        if not IS_RESOURCE:
+            EGRESS = 0
+        else:
+            print(' *** ERROR in simulator: --egress argument invalid or missing.')
+            exit()
 
     try:
-        EGRESS = int(_caps['EGRESS'])
+        INGRESS = int(getenv('HOST_INGRESS'))
     except:
-        print(' *** ERROR in simulator: '
-              + _host + ':EGRESS parameter invalid or missing.')
-        exit()
-
-    try:
-        INGRESS = int(_caps['INGRESS'])
-    except:
-        print(' *** ERROR in simulator: '
-              + _host + ':INGRESS parameter invalid or missing.')
-        exit()
+        if not IS_RESOURCE:
+            INGRESS = 0
+        else:
+            print(' *** ERROR in simulator: --ingress argument invalid or missing.')
+            exit()
 
 else:
     # real monitoring config
@@ -159,13 +148,14 @@ def get_resources(quiet: bool = False, _all: bool = False):
         and free ingress bandwidth.
     '''
     
+    cpu = ram = disk = egress = ingress = 0
     if SIM_ON:
         cpu = CPU - _reserved['cpu']
         ram = RAM - _reserved['ram']
         disk = DISK - _reserved['disk']
         egress = EGRESS - _reserved['egress']
         ingress = INGRESS - _reserved['ingress']
-    else:
+    elif IS_RESOURCE:
         cpu = MEASURES['cpu_count'] - _reserved['cpu']
         ram = MEASURES['memory_free'] - _reserved['ram']
         disk = MEASURES['disk_free'] - _reserved['disk']

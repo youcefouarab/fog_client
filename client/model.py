@@ -38,7 +38,7 @@ from time import time
 from enum import Enum
 from datetime import datetime
 
-from common import HREQ, RREQ, DREQ, DRES, FAIL
+from consts import HREQ, RREQ, DREQ, DRES, FAIL
 
 
 class Model:

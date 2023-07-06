@@ -27,19 +27,18 @@
 '''
 
 
-from os import getenv
+from os import getenv, environ
 from threading import Thread
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from atexit import register as at_exit
 from signal import signal, SIGINT
 from sys import exit as sys_exit
 from logging import getLogger
 from flask import cli
 
+from consts import *
 from manager import Manager
 from model import Node
-from common import *
-
 
 # disable flask console messages
 getLogger('werkzeug').disabled = True
@@ -48,17 +47,30 @@ cli.show_server_banner = lambda *args: None
 parser = ArgumentParser()
 
 
+def valid_server(s):
+    try:
+        environ['SERVER_IP'], environ['SERVER_API_PORT'] = s.split(':')
+    except ValueError:
+        raise ArgumentTypeError('--server format must be IP:PORT (e.g. 127.0.0.1:8080)')
+
+
 def _parse_arguments():
     subparsers = parser.add_subparsers(dest='mode')
     # switch mode
     s_parser = subparsers.add_parser(MODE_SWITCH, help='Connect as switch.')
-    s_parser.add_argument('-d', '--dpid', metavar='dpid', default=None,
-                          required=True, help='Bridge datapath ID.')
+    s_parser.add_argument('-d', '--dpid', metavar='dpid', required=True, 
+                          help='Bridge datapath ID.')
+    s_parser.add_argument('-s', '--server', metavar='server', required=True, 
+                          type=valid_server,
+                          help='Server IP and API port. Format is IP:PORT.')
     s_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
                           help='Detailed output on the console.')
     # client mode
     c_parser = subparsers.add_parser(MODE_CLIENT, help='Connect as client.')
+    c_parser.add_argument('-s', '--server', metavar='server', required=True, 
+                          type=valid_server,
+                          help='Server IP and API port. Format is IP:PORT.')
     c_parser.add_argument('-i', '--id', metavar='id', default=None,
                           help='Custom node ID (for simulations).')
     c_parser.add_argument('-l', '--label', metavar='label', default=None,
@@ -69,10 +81,23 @@ def _parse_arguments():
     # resource mode
     r_parser = subparsers.add_parser(
         MODE_RESOURCE, help='Connect as resource.')
+    r_parser.add_argument('-s', '--server', metavar='server', required=True, 
+                          type=valid_server,
+                          help='Server IP and API port. Format is IP:PORT.')
     r_parser.add_argument('-i', '--id', metavar='id', default=None,
                           help='Custom node ID (for simulations).')
     r_parser.add_argument('-l', '--label', metavar='label', default=None,
                           help='Custom node label (for simulations).')
+    r_parser.add_argument('-c', '--cpu', metavar='cpu', required=True,
+                          help='Number of simulated CPUs.')
+    r_parser.add_argument('-r', '--ram', metavar='ram', required=True,
+                          help='Size of simulated RAM (in MB).')
+    r_parser.add_argument('-d', '--disk', metavar='disk', required=True,
+                          help='Size of simulated disk (in GB).')
+    r_parser.add_argument('-e', '--egress', metavar='egress', required=True,
+                          help='Size of simulated egress bandwidth (in Mbps).')
+    r_parser.add_argument('-n', '--ingress', metavar='ingress', required=True,
+                          help='Size of simulated ingress bandwidth (in Mbps).')
     r_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
                           help='Detailed output on the console.')
@@ -169,6 +194,13 @@ def _cli(mode: str):
 if __name__ == '__main__':
     args = _parse_arguments()
     mode = args.mode
+    if mode == MODE_RESOURCE:
+        environ['IS_RESOURCE'] = 'True'
+        environ['HOST_CPU'] = str(args.cpu)
+        environ['HOST_RAM'] = str(args.ram)
+        environ['HOST_DISK'] = str(args.disk)
+        environ['HOST_INGRESS'] = str(args.ingress)
+        environ['HOST_EGRESS'] = str(args.egress)
     if mode == MODE_CLIENT or mode == MODE_RESOURCE:
         connect(mode, id=args.id, label=args.label,
                 verbose=args.verbose != False)
@@ -201,6 +233,7 @@ if __name__ == '__main__':
         print('\nGUI started at http://' + MY_IP + ':8050')
 
         # start cli
+        environ['PROTOCOL_VERBOSE'] = str(args.verbose)
         if PROTO_SEND_TO == SEND_TO_BROADCAST:
             from protocol_bcst import send_request, cos_names
         elif PROTO_SEND_TO == SEND_TO_ORCHESTRATOR:

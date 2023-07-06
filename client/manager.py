@@ -7,8 +7,7 @@ from re import findall
 from uuid import getnode
 
 from model import Node, NodeType, Interface
-from api import add_node, get_config, delete_node, update_node_specs
-from common import *
+from consts import *
 
 
 class Manager:
@@ -71,6 +70,7 @@ class Manager:
         if not self.node:
             self._build(**kwargs)
 
+        from api import get_config, add_node
         conf = None
         while conf == None:
             if self.verbose:
@@ -119,6 +119,7 @@ class Manager:
             Returns True if withdrawn properly, False if not.
         '''
 
+        from api import delete_node
         if self.verbose:
             print(' *** Disconnecting')
         self._connected = False
@@ -173,6 +174,7 @@ class Manager:
             print(' *** Done')
 
     def _udp_connect(self):
+        from common import SERVER_IP
         try:
             UDP_PORT = int(getenv('ORCHESTRATOR_UDP_PORT', None))
         except:
@@ -198,6 +200,7 @@ class Manager:
         udp_client.close()
 
     def _update_specs(self):
+        from common import MONITOR
         global MONITOR_PERIOD
         try:
             MONITOR_PERIOD = float(getenv('MONITOR_PERIOD', None))
@@ -212,6 +215,7 @@ class Manager:
         measures = MONITOR.measures
 
         from simulator import get_resources
+        from api import add_node, update_node_specs
 
         while self._connected:
             sleep(MONITOR_PERIOD)

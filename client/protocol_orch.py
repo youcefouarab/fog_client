@@ -21,6 +21,7 @@
 '''
 
 
+from os import getenv
 from threading import Thread, Event
 from time import time
 from string import ascii_letters, digits
@@ -34,7 +35,7 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 from simulator import (check_resources, reserve_resources, free_resources,
                        execute)
 from model import Request, Attempt, CoS
-from common import *
+from consts import *
 
 
 # decoy controller/orchestrator
