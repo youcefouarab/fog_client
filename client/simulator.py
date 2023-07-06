@@ -47,7 +47,7 @@ if SIM_ON:
         if not IS_RESOURCE:
             CPU = 0
         else:
-            print(' *** ERROR in simulator: --cpu argument invalid or missing.')
+            print(' *** ERROR in simulator: CPU argument invalid or missing.')
             exit()
 
     try:
@@ -56,7 +56,7 @@ if SIM_ON:
         if not IS_RESOURCE:
             RAM = 0
         else:
-            print(' *** ERROR in simulator: --ram argument invalid or missing.')
+            print(' *** ERROR in simulator: RAM argument invalid or missing.')
             exit()
 
     try:
@@ -65,7 +65,7 @@ if SIM_ON:
         if not IS_RESOURCE:
             DISK = 0
         else:
-            print(' *** ERROR in simulator: --disk argument invalid or missing.')
+            print(' *** ERROR in simulator: disk argument invalid or missing.')
             exit()
 
     try:
@@ -74,7 +74,7 @@ if SIM_ON:
         if not IS_RESOURCE:
             EGRESS = 0
         else:
-            print(' *** ERROR in simulator: --egress argument invalid or missing.')
+            print(' *** ERROR in simulator: egress argument invalid or missing.')
             exit()
 
     try:
@@ -83,7 +83,7 @@ if SIM_ON:
         if not IS_RESOURCE:
             INGRESS = 0
         else:
-            print(' *** ERROR in simulator: --ingress argument invalid or missing.')
+            print(' *** ERROR in simulator: ingress argument invalid or missing.')
             exit()
 
 else:

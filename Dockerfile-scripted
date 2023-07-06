@@ -1,0 +1,35 @@
+FROM python:3.10-slim-bookworm
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y nano vim libpcap0.8 xterm iputils-ping net-tools curl wget
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+
+ENV MODE=client
+ENV SERVER=127.0.0.1:8080
+ENV CPU=0
+ENV RAM=0
+ENV DISK=0
+ENV INGRESS=0
+ENV EGRESS=0
+ENV ID=
+ENV LABEL=
+ENV VERBOSE=False
+ENV COS_ID=1
+ENV DELAY=1
+ENV INTERVAL=1
+ENV THREADS=1
+ENV LIMIT=1
+ENV SEQUENTIAL=True
+ENV DATA=data+program
+
+ENTRYPOINT ["sh", "-c", \
+            "MODE=${MODE}", "SERVER=${SERVER}", \
+            "CPU=${CPU}", "RAM=${RAM}", "DISK=${DISK}", \
+            "INGRESS=${INGRESS}", "EGRESS=${EGRESS}", \
+            "ID=${ID}", "LABEL=${LABEL}", "VERBOSE=${VERBOSE}", \
+            "COS_ID=${COS_ID}", "DELAY=${DELAY}", "INTERVAL=${INTERVAL}", \
+            "THREADS=${THREADS}", "LIMIT=${LIMIT}", "SEQUENTIAL=${SEQUENTIAL}", \
+            "DATA=${DATA}", \
+            "python", "examples/script.py"]

@@ -1,73 +1,102 @@
-'''
-Mode can be client, resource or switch
-'''
-MODE = 'client'
-
-'''
-Node ID
-'''
-ID = '00:00:00:00:10:10'
-
-'''
-Node label
-'''
-LABEL = 'h1'
-
-'''
-Class of Service list
-
-id  name              
-1   best-effort       
-2   cpu-bound         
-3   streaming         
-4   conversational    
-5   interactive       
-6   real-time         
-7   mission-critical  
-'''
-COS_ID = 1
-
-'''
-Send a request every INTERVAL seconds
-'''
-INTERVAL = 0.1
-
-'''
-THREADS running in parallel
-'''
-THREADS = 1
-
-'''
-Stop when LIMIT requests (per thread) are sent (-1 is infinite)
-'''
-LIMIT = 100
-
-'''
-If SEQUENTIAL, wait for previous response before sending next request
-'''
-SEQUENTIAL = False
-
-'''
-DATA bytes to send
-'''
-DATA = b'data + program'
-
-
-#####################################
-#### !! DO NOT EDIT FROM HERE !! ####
-#####################################
-
-
-from os import getenv
+from os import getenv, environ
 from threading import Thread
 from time import sleep
 
 from context import *
+from client.consts import (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR, 
+                           SEND_TO_NONE, MODE_CLIENT, MODE_RESOURCE)
 from client.client import connect
-from client.common import SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR, SEND_TO_NONE
 
 
-connect(MODE, id=ID, label=LABEL)
+MODE = getenv('MODE', None)
+if MODE not in (MODE_CLIENT, MODE_RESOURCE):
+    print(' *** ERROR in script: '
+          'MODE environment variable invalid or missing.')
+    exit()
+
+if MODE == MODE_RESOURCE:
+    environ['IS_RESOURCE'] = 'True'
+    environ['HOST_CPU'] = getenv('CPU', None)
+    environ['HOST_RAM'] = getenv('RAM', None)
+    environ['HOST_DISK'] = getenv('DISK', None)
+    environ['HOST_INGRESS'] = getenv('INGRESS', None)
+    environ['HOST_EGRESS'] = getenv('EGRESS', None)
+
+try:
+    environ['SERVER_IP'], environ['SERVER_API_PORT'] = getenv('SERVER', None).split(':')
+except:
+    print(' *** ERROR in script: '
+          'SERVER environment variable invalid or missing. '
+          'Format must be IP:PORT (e.g. 127.0.0.1:8080).')
+    exit()
+
+ID = getenv('ID', None)
+LABEL = getenv('LABEL', None)
+
+_verb = getenv('VERBOSE', None)
+if _verb == None or _verb.upper() not in ('TRUE', 'FALSE'):
+    _verb = 'False'
+VERBOSE = _verb.upper() == 'TRUE'
+
+try:
+    COS_ID = int(getenv('COS_ID', None))
+except:
+    print(' *** WARNING in script: '
+          'COS_ID environment variable invalid or missing. '
+          'Defaulting to 1 (best-effort).')
+    COS_ID = 1
+
+try:
+    DELAY = float(getenv('DELAY', None))
+except:
+    print(' *** WARNING in script: '
+          'DELAY environment variable invalid or missing. '
+          'Defaulting to 1s.')
+    DELAY = 1
+
+try:
+    INTERVAL = float(getenv('INTERVAL', None))
+except:
+    print(' *** WARNING in script: '
+          'INTERVAL environment variable invalid or missing. '
+          'Defaulting to 1s.')
+    INTERVAL = 1
+
+try:
+    THREADS = int(getenv('THREADS', None))
+except:
+    print(' *** WARNING in script: '
+          'THREADS environment variable invalid or missing. '
+          'Defaulting to 1.')
+    THREADS = 1
+
+try:
+    LIMIT = int(getenv('LIMIT', None))
+except:
+    print(' *** WARNING in script: '
+          'LIMIT environment variable invalid or missing. '
+          'Defaulting to 1.')
+    LIMIT = 1
+
+_seq = getenv('SEQUENTIAL', None)
+if _seq == None or _seq.upper() not in ('TRUE', 'FALSE'):
+    print(' *** WARNING in script: '
+          'SEQUENTIAL environment variable invalid or missing. '
+          'Defaulting to False.')
+    _seq = 'False'
+SEQUENTIAL = _seq.upper() == 'TRUE'
+
+_data = getenv('DATA', None)
+if _data == None:
+    print(' *** WARNING in script: '
+          'DATA environment variable missing. '
+          'No data will be sent.')
+    _data = ''
+DATA = _data.encode()
+
+
+print()
+connect(MODE, verbose=VERBOSE, id=ID, label=LABEL)
 sleep(1)
 
 
@@ -89,10 +118,8 @@ PROTO_SEND_TO = _proto_send_to
 
 if PROTO_SEND_TO == SEND_TO_BROADCAST:
     from client.protocol_bcst import send_request
-    print('BCST')
 elif PROTO_SEND_TO == SEND_TO_ORCHESTRATOR:
     from client.protocol_orch import send_request
-    print('CTRL')
 else:
     print(' *** ERROR in script:'
             'protocol cannot be used when PROTOCOL:SEND_TO is ' + SEND_TO_NONE)
@@ -104,10 +131,11 @@ def _send_request(index: int, cos_id: int, data: bytes):
 
 
 def _send_requests():
-    _limit = LIMIT
+    limit = LIMIT
     index = 0
-    while _limit != 0:
-        _limit -= 1
+    sleep(DELAY)
+    while limit != 0:
+        limit -= 1
         index += 1
         if SEQUENTIAL:
             _send_request(index, COS_ID, DATA)
