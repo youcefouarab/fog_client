@@ -88,15 +88,15 @@ def _parse_arguments():
                           help='Custom node ID (for simulations).')
     r_parser.add_argument('-l', '--label', metavar='label', default=None,
                           help='Custom node label (for simulations).')
-    r_parser.add_argument('-c', '--cpu', metavar='cpu', required=True,
+    r_parser.add_argument('-c', '--cpu', metavar='cpu', default=None,
                           help='Number of simulated CPUs.')
-    r_parser.add_argument('-r', '--ram', metavar='ram', required=True,
+    r_parser.add_argument('-r', '--ram', metavar='ram', default=None,
                           help='Size of simulated RAM (in MB).')
-    r_parser.add_argument('-d', '--disk', metavar='disk', required=True,
+    r_parser.add_argument('-d', '--disk', metavar='disk', default=None,
                           help='Size of simulated disk (in GB).')
-    r_parser.add_argument('-e', '--egress', metavar='egress', required=True,
+    r_parser.add_argument('-e', '--egress', metavar='egress', default=None,
                           help='Size of simulated egress bandwidth (in Mbps).')
-    r_parser.add_argument('-n', '--ingress', metavar='ingress', required=True,
+    r_parser.add_argument('-n', '--ingress', metavar='ingress', default=None,
                           help='Size of simulated ingress bandwidth (in Mbps).')
     r_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
