@@ -38,6 +38,8 @@ if _verb == None or _verb.upper() not in ('TRUE', 'FALSE'):
     _verb = 'False'
 VERBOSE = _verb.upper() == 'TRUE'
 
+environ['PROTOCOL_VERBOSE'] = str(VERBOSE)
+
 try:
     COS_ID = int(getenv('COS_ID', None))
 except:
