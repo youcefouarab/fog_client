@@ -124,14 +124,15 @@ class Manager:
             print(' *** Disconnecting')
         self._connected = False
         if self._mode != MODE_SWITCH:
-            if delete_node(self.node)[0]:
+            deleted = delete_node(self.node)
+            if deleted[0]:
                 if self.verbose:
                     print(' *** Done')
                     print(' *** Node deleted successfully')
                 return True
             else:
                 if self.verbose:
-                    print(' *** Node not deleted')
+                    print(' *** Node not deleted (%d)' % deleted[1])
                 return False
 
     def _get_id(self):
@@ -233,8 +234,9 @@ class Manager:
                     measures.get(iface.name, {}).get('tx_packets', 0))
                 iface.set_rx_packets(
                     measures.get(iface.name, {}).get('rx_packets', 0))
-
-            if update_node_specs(self.node)[0]:
+            
+            updated = update_node_specs(self.node)
+            if updated[0]:
                 if self.verbose:
                     if self._mode == MODE_RESOURCE:
                         print(' *** Node specs are being sent'.ljust(40),
@@ -244,7 +246,8 @@ class Manager:
                               end='\r')
             else:
                 if self.verbose:
-                    print(' *** Specs are not being sent'.ljust(40), end='\r')
+                    print((' *** Specs are not being sent (%d)' 
+                           % updated[1]).ljust(40) , end='\r')
 
                 # if connection to controller was lost but is back
                 # re-add node in case it was deleted

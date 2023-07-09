@@ -59,7 +59,7 @@ def _parse_arguments():
     # switch mode
     s_parser = subparsers.add_parser(MODE_SWITCH, help='Connect as switch.')
     s_parser.add_argument('-d', '--dpid', metavar='dpid', required=True, 
-                          help='Bridge datapath ID.')
+                          help='Bridge datapath ID (in hexadecimal).')
     s_parser.add_argument('-s', '--server', metavar='server', required=True, 
                           type=valid_server,
                           help='Server IP and API port. Format is IP:PORT.')
