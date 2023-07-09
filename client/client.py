@@ -234,8 +234,5 @@ if __name__ == '__main__':
 
         # start cli
         environ['PROTOCOL_VERBOSE'] = str(args.verbose)
-        if PROTO_SEND_TO == SEND_TO_BROADCAST:
-            from protocol_bcst import send_request, cos_names
-        elif PROTO_SEND_TO == SEND_TO_ORCHESTRATOR:
-            from protocol_orch import send_request, cos_names
+        from protocol import send_request, cos_names
         _cli(mode)

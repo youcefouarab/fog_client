@@ -523,7 +523,7 @@ def send_request(cos_id: int, data: bytes):
         attempt.hreq_at = time()
         if not req.hreq_at:
             req.hreq_at = attempt.hreq_at
-        info('Send host request')
+        info('Send host request to orchestrator')
         info(req)
         hreq_rt -= 1
         # send request to orchestrator and wait for response

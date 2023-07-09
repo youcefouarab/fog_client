@@ -494,7 +494,7 @@ def send_request(cos_id: int, data: bytes):
         attempt.hreq_at = time()
         if not req.hreq_at:
             req.hreq_at = attempt.hreq_at
-        info('Send host request')
+        info('Broadcasting host request')
         info(req)
         hreq_rt -= 1
         # send broadcast and wait for first response

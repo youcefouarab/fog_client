@@ -132,7 +132,7 @@ class Manager:
                 return True
             else:
                 if self.verbose:
-                    print(' *** Node not deleted (%d)' % deleted[1])
+                    print(' *** Node not deleted (%s)' % str(deleted[1]))
                 return False
 
     def _get_id(self):
@@ -246,8 +246,8 @@ class Manager:
                               end='\r')
             else:
                 if self.verbose:
-                    print((' *** Specs are not being sent (%d)' 
-                           % updated[1]).ljust(40) , end='\r')
+                    print((' *** Specs are not being sent (%s)' 
+                           % str(updated[1])).ljust(40) , end='\r')
 
                 # if connection to controller was lost but is back
                 # re-add node in case it was deleted
