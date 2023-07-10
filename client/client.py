@@ -94,10 +94,10 @@ def _parse_arguments():
                           help='Size of simulated RAM (in MB).')
     r_parser.add_argument('-d', '--disk', metavar='disk', default=None,
                           help='Size of simulated disk (in GB).')
-    r_parser.add_argument('-e', '--egress', metavar='egress', default=None,
-                          help='Size of simulated egress bandwidth (in Mbps).')
-    r_parser.add_argument('-n', '--ingress', metavar='ingress', default=None,
-                          help='Size of simulated ingress bandwidth (in Mbps).')
+    #r_parser.add_argument('-e', '--egress', metavar='egress', default=None,
+    #                      help='Size of simulated egress bandwidth (in Mbps).')
+    #r_parser.add_argument('-n', '--ingress', metavar='ingress', default=None,
+    #                      help='Size of simulated ingress bandwidth (in Mbps).')
     r_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
                           help='Detailed output on the console.')
@@ -199,8 +199,8 @@ if __name__ == '__main__':
         environ['HOST_CPU'] = str(args.cpu)
         environ['HOST_RAM'] = str(args.ram)
         environ['HOST_DISK'] = str(args.disk)
-        environ['HOST_INGRESS'] = str(args.ingress)
-        environ['HOST_EGRESS'] = str(args.egress)
+        #environ['HOST_INGRESS'] = str(args.ingress)
+        #environ['HOST_EGRESS'] = str(args.egress)
     if mode == MODE_CLIENT or mode == MODE_RESOURCE:
         connect(mode, id=args.id, label=args.label,
                 verbose=args.verbose != False)

@@ -251,7 +251,7 @@ class MyProtocolAM(AnsweringMachine):
                 # old request)
                 _requests[_req_id].cos = cos_dict[my_proto.cos_id]
                 info('Checking resources')
-                cpu, ram, disk, _, _ = get_resources(_requests[_req_id])
+                cpu, ram, disk = get_resources(_requests[_req_id])
                 check = check_resources(_requests[_req_id])
                 if check:
                     info('Send host response to %s' % ip_src)

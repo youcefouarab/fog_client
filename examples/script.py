@@ -3,8 +3,7 @@ from threading import Thread
 from time import sleep
 
 from context import *
-from client.consts import (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR, 
-                           SEND_TO_NONE, MODE_CLIENT, MODE_RESOURCE)
+from client.consts import MODE_CLIENT, MODE_RESOURCE
 from client.client import connect
 
 
@@ -13,14 +12,6 @@ if MODE not in (MODE_CLIENT, MODE_RESOURCE):
     print(' *** ERROR in script: '
           'MODE environment variable invalid or missing.')
     exit()
-
-if MODE == MODE_RESOURCE:
-    environ['IS_RESOURCE'] = 'True'
-    environ['HOST_CPU'] = getenv('CPU', None)
-    environ['HOST_RAM'] = getenv('RAM', None)
-    environ['HOST_DISK'] = getenv('DISK', None)
-    environ['HOST_INGRESS'] = getenv('INGRESS', None)
-    environ['HOST_EGRESS'] = getenv('EGRESS', None)
 
 try:
     environ['SERVER_IP'], environ['SERVER_API_PORT'] = getenv('SERVER', None).split(':')
@@ -39,6 +30,21 @@ if _verb == None or _verb.upper() not in ('TRUE', 'FALSE'):
 VERBOSE = _verb.upper() == 'TRUE'
 
 environ['PROTOCOL_VERBOSE'] = str(VERBOSE)
+
+if MODE == MODE_RESOURCE:
+    environ['IS_RESOURCE'] = 'True'
+    environ['HOST_CPU'] = getenv('CPU', 'None')
+    environ['HOST_RAM'] = getenv('RAM', 'None')
+    environ['HOST_DISK'] = getenv('DISK', 'None')
+    #environ['HOST_INGRESS'] = getenv('INGRESS', 'None')
+    #environ['HOST_EGRESS'] = getenv('EGRESS', 'None')
+
+
+print()
+connect(MODE, verbose=VERBOSE, id=ID, label=LABEL)
+print()
+sleep(1)
+
 
 try:
     COS_ID = int(getenv('COS_ID', None))
@@ -97,35 +103,7 @@ if _data == None:
 DATA = _data.encode()
 
 
-print()
-connect(MODE, verbose=VERBOSE, id=ID, label=LABEL)
-sleep(1)
-
-
-STP_ENABLED = getenv('NETWORK_STP_ENABLED', False) == 'True'
-_proto_send_to = getenv('PROTOCOL_SEND_TO', None)
-if (_proto_send_to == None
-        or (_proto_send_to != SEND_TO_BROADCAST
-            and _proto_send_to != SEND_TO_ORCHESTRATOR
-            and _proto_send_to != SEND_TO_NONE)
-        or (_proto_send_to == SEND_TO_BROADCAST
-            and not STP_ENABLED)):
-    print(' *** WARNING in script: '
-          'PROTOCOL:SEND_TO parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to ' + SEND_TO_NONE + ' (protocol will not be used).')
-    _proto_send_to = SEND_TO_NONE
-PROTO_SEND_TO = _proto_send_to
-
-
-if PROTO_SEND_TO == SEND_TO_BROADCAST:
-    from client.protocol_bcst import send_request
-elif PROTO_SEND_TO == SEND_TO_ORCHESTRATOR:
-    from client.protocol_orch import send_request
-else:
-    print(' *** ERROR in script:'
-            'protocol cannot be used when PROTOCOL:SEND_TO is ' + SEND_TO_NONE)
-    exit()
+from client.protocol import send_request
 
 
 def _send_request(index: int, cos_id: int, data: bytes):

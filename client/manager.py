@@ -221,15 +221,17 @@ class Manager:
         while self._connected:
             sleep(MONITOR_PERIOD)
             # resources are gotten from simulator
-            cpu, ram, disk, bw_up, bw_down = get_resources(True)
+            cpu, ram, disk = get_resources(True)
             if self._mode == MODE_RESOURCE:
                 self.node.set_cpu(cpu)
                 self.node.set_ram(ram)
                 self.node.set_disk(disk)
+            # other stats are gotten from monitor
             for iface in list(self.node.interfaces.values()):
-                iface.set_bandwidth_up(bw_up)
-                iface.set_bandwidth_down(bw_down)
-                # other stats are gotten from monitor
+                iface.set_bandwidth_up(
+                    measures.get(iface.name, {}).get('bandwidth_up', 0))
+                iface.set_bandwidth_down(
+                    measures.get(iface.name, {}).get('bandwidth_down', 0))
                 iface.set_tx_packets(
                     measures.get(iface.name, {}).get('tx_packets', 0))
                 iface.set_rx_packets(

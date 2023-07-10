@@ -4,13 +4,13 @@
     of their Classes of Service (CoS).
     
     It can also function as a proxy of monitor, applying a filter to real 
-    measurements (of CPU, RAM, disk, and bandwidth) to get simulated ones 
-    based on capacities declared in conf.yml.
+    measurements (of CPU, RAM, disk) to get simulated ones based on capacities 
+    declared in conf.yml.
 
     Methods:
     --------
-    get_resources(quiet, _all): Returns tuple of CPU count, free RAM, free 
-    disk, free egress bandwidth and free ingress bandwidth.
+    get_resources(quiet, _all): Returns tuple of CPU count, free RAM, and free 
+    disk.
 
     check_resources(request): Returns True if the current resources can satisfy 
     the requirements of request, False if not.
@@ -68,6 +68,7 @@ if SIM_ON:
             print(' *** ERROR in simulator: disk argument invalid or missing.')
             exit()
 
+    '''
     try:
         EGRESS = int(getenv('HOST_EGRESS'))
     except:
@@ -85,6 +86,7 @@ if SIM_ON:
         else:
             print(' *** ERROR in simulator: ingress argument invalid or missing.')
             exit()
+    '''
 
 else:
     # real monitoring config
@@ -144,23 +146,22 @@ except:
 
 def get_resources(quiet: bool = False, _all: bool = False):
     '''
-        Returns tuple of CPU count, free RAM, free disk, free egress bandwidth 
-        and free ingress bandwidth.
+        Returns tuple of CPU count, free RAM and free disk.
     '''
     
-    cpu = ram = disk = egress = ingress = 0
+    cpu = ram = disk = 0
     if SIM_ON:
         cpu = CPU - _reserved['cpu']
         ram = RAM - _reserved['ram']
         disk = DISK - _reserved['disk']
-        egress = EGRESS - _reserved['egress']
-        ingress = INGRESS - _reserved['ingress']
+        #egress = EGRESS - _reserved['egress']
+        #ingress = INGRESS - _reserved['ingress']
     elif IS_RESOURCE:
         cpu = MEASURES['cpu_count'] - _reserved['cpu']
         ram = MEASURES['memory_free'] - _reserved['ram']
         disk = MEASURES['disk_free'] - _reserved['disk']
-        egress = MEASURES[my_iface]['bandwidth_up'] - _reserved['egress']
-        ingress = MEASURES[my_iface]['bandwidth_down'] - _reserved['ingress']
+        #egress = MEASURES[my_iface]['bandwidth_up'] - _reserved['egress']
+        #ingress = MEASURES[my_iface]['bandwidth_down'] - _reserved['ingress']
     if _all:
         print('Host\'s real capacities')
         if not SIM_ON:
@@ -180,9 +181,8 @@ def get_resources(quiet: bool = False, _all: bool = False):
               '    RAM  = %.2f MB\n'
               '    DISK = %.2f GB\n' % (cpu, ram, disk))
     elif not quiet:
-        info('current(cpu=%d, ram=%.2fMB, disk=%.2fGB, egress=%.2f, '
-             'ingress=%.2f)' % (cpu, ram, disk, egress, ingress))
-    return cpu, ram, disk, egress, ingress
+        info('current(cpu=%d, ram=%.2fMB, disk=%.2fGB)' % (cpu, ram, disk))
+    return cpu, ram, disk
 
 
 def check_resources(req: Request, quiet: bool = False):
@@ -198,7 +198,7 @@ def check_resources(req: Request, quiet: bool = False):
         if not quiet:
             info('required(cpu=%d, ram=%.2fMB, disk=%.2fGB)' %
                  (min_cpu, min_ram, min_disk))
-        cpu, ram, disk, _, _ = get_resources(quiet)
+        cpu, ram, disk = get_resources(quiet)
         return cpu >= min_cpu and ram >= min_ram and disk >= min_disk
 
 
@@ -216,7 +216,7 @@ def reserve_resources(req: Request):
         min_disk = req.get_min_disk()
         info('required(cpu=%d, ram=%.2fMB, disk=%.2fGB)' % (
              min_cpu, min_ram, min_disk))
-        cpu, ram, disk, _, _ = get_resources(quiet=True)
+        cpu, ram, disk = get_resources(quiet=True)
         if cpu >= min_cpu and ram >= min_ram and disk >= min_disk:
             _reserved['cpu'] += min_cpu
             _reserved['ram'] += min_ram
