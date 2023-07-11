@@ -175,6 +175,8 @@ class InterfaceSpecs(Model):
 
         Attributes:
         -----------
+        capacity: Total capacity. Default is 0.
+
         bandwidth_up: Free egress bandwidth. Default is 0.
 
         bandwidth_down: Free ingress bandwidth. Default is 0.
@@ -186,9 +188,10 @@ class InterfaceSpecs(Model):
         timestamp: Default is time of update.
     '''
 
-    def __init__(self, bandwidth_up: float = 0, bandwidth_down: float = 0,
-                 tx_packets: int = 0, rx_packets: int = 0,
-                 timestamp: float = 0):
+    def __init__(self, capacity: float = 0, bandwidth_up: float = 0, 
+                 bandwidth_down: float = 0, tx_packets: int = 0, 
+                 rx_packets: int = 0, timestamp: float = 0):
+        self.capacity = capacity
         self.bandwidth_up = bandwidth_up
         self.bandwidth_down = bandwidth_down
         self.tx_packets = tx_packets
@@ -238,6 +241,13 @@ class Interface(Model):
     # the following methods serve for access to the interface specs no matter
     # how they are implemented (whether they are attributes in the object, are
     # objects themselves within an Iterable, etc.)
+
+    def get_capacity(self):
+        return self.specs.capacity
+
+    def set_capacity(self, capacity: float = 0):
+        self.specs.capacity = capacity
+        self.set_timestamp()
 
     def get_bandwidth_up(self):
         return self.specs.bandwidth_up
@@ -394,112 +404,6 @@ class Node(Model):
 
     def set_disk(self, disk: float = 0):
         self.specs.disk = disk
-        self.set_timestamp()
-
-    def get_timestamp(self):
-        return self.specs.timestamp
-
-    def set_timestamp(self, timestamp: float = 0):
-        self.specs.timestamp = timestamp if timestamp else time()
-
-
-class LinkSpecs(Model):
-    '''
-        Network link specs at given timestamp.
-
-        Attributes:
-        -----------
-        bandwidth: Free bandwidth. Default is 0.
-
-        delay: Default is inf.
-
-        jitter: Default is inf.
-
-        loss_rate: Default is 1.
-
-        timestamp: Default is time of update.
-    '''
-
-    def __init__(self, bandwidth: float = 0, delay: float = float('inf'),
-                 jitter: float = float('inf'), loss_rate: float = 1,
-                 timestamp: float = 0):
-        self.bandwidth = bandwidth
-        self.delay = delay
-        self.jitter = jitter
-        self.loss_rate = loss_rate
-        self.timestamp = timestamp if timestamp else time()
-
-
-class Link(Model):
-    '''
-        Network link.    
-
-        Recommendation: use the provided getters and setters for specs in case 
-        their structure changes in future updates.
-
-        Attributes:
-        -----------
-        src_port: Interface object.
-
-        dst_port: Interface object.
-
-        state: Link state boolean; True is up, False is down.
-
-        specs: LinkSpecs object.
-    '''
-
-    def __init__(self, src_port: Interface, dst_port: Interface,
-                 state: bool, specs: LinkSpecs = None):
-        self.src_port = src_port
-        self.dst_port = dst_port
-        self.state = state
-        self.specs = specs if specs else LinkSpecs()
-
-    def as_dict(self, flat: bool = False):
-        d = super().as_dict(flat)
-        if not flat:
-            d['src_port'] = self.src_port.as_dict()
-            d['dst_port'] = self.dst_port.as_dict()
-            d['specs'] = self.specs.as_dict()
-        else:
-            del d['src_port']
-            d.update(self.src_port.as_dict(flat, _prefix='src_port'))
-            del d['dst_port']
-            d.update(self.dst_port.as_dict(flat, _prefix='dst_port'))
-            del d['specs']
-            d.update(self.specs.as_dict(flat, _prefix='specs'))
-        return d
-
-    # the following methods serve for access to the node specs no matter how
-    # they are implemented (whether they are attributes in the object, are
-    # objects themselves within an Iterable, etc.)
-
-    def get_bandwidth(self):
-        return self.specs.bandwidth
-
-    def set_bandwidth(self, bandwidth: float = 0):
-        self.specs.bandwidth = bandwidth
-        self.set_timestamp()
-
-    def get_delay(self):
-        return self.specs.delay
-
-    def set_delay(self, delay: float = float('inf')):
-        self.specs.delay = delay
-        self.set_timestamp()
-
-    def get_jitter(self):
-        return self.specs.jitter
-
-    def set_jitter(self, jitter: float = float('inf')):
-        self.specs.jitter = jitter
-        self.set_timestamp()
-
-    def get_loss_rate(self):
-        return self.specs.loss_rate
-
-    def set_loss_rate(self, loss_rate: float = 1):
-        self.specs.loss_rate = loss_rate
         self.set_timestamp()
 
     def get_timestamp(self):

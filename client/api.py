@@ -140,6 +140,7 @@ def _ryu_update_node_specs(node: Node):
         'timestamp': node.get_timestamp(),
         'interfaces': [{
             'name': iface.name,
+            'capacity': iface.get_capacity(),
             'bandwidth_up': iface.get_bandwidth_up(),
             'bandwidth_down': iface.get_bandwidth_down(),
             'tx_packets': iface.get_tx_packets(),

@@ -11,8 +11,8 @@ class Monitor(metaclass=SingletonMeta):
     '''
         Class for monitoring the state of resources of the node it's running on 
         (number of CPUs, total and free memory size, total and free disk size, 
-        as well as free free egress and ingress bandwidth, Tx and Rx packets, 
-        and delay on each network interface).
+        as well as total capacity, free egress and ingress bandwidth, Tx and Rx 
+        packets, and delay on each network interface).
 
         Attributes:
         -----------
@@ -37,6 +37,7 @@ class Monitor(metaclass=SingletonMeta):
         \t  'disk_total': <float>, # in GB\n
         \t  'disk_free': <float>, # in GB\n
         \t  'iface_name': {\n
+        \t\t    'capacity': <float>, # in Mbit/s\n
         \t\t    'bandwidth_up': <float>, # in Mbit/s\n
         \t\t    'bandwidth_down': <float>, # in Mbit/s\n
         \t\t    'delay': <float>, # in s\n
@@ -138,6 +139,7 @@ class Monitor(metaclass=SingletonMeta):
                         1e+6  # in Mbits/s
                     #  save bandwidth measurement
                     self.measures.setdefault(iface, {})
+                    self.measures[iface]['capacity'] = max_speed / 1e+6  # in Mbits/s
                     self.measures[iface]['bandwidth_up'] = bandwidth_up
                     self.measures[iface]['bandwidth_down'] = bandwidth_down
                     self.measures[iface]['tx_packets'] = next.packets_sent

@@ -227,15 +227,13 @@ class Manager:
                 self.node.set_ram(ram)
                 self.node.set_disk(disk)
             # other stats are gotten from monitor
-            for iface in list(self.node.interfaces.values()):
-                iface.set_bandwidth_up(
-                    measures.get(iface.name, {}).get('bandwidth_up', 0))
-                iface.set_bandwidth_down(
-                    measures.get(iface.name, {}).get('bandwidth_down', 0))
-                iface.set_tx_packets(
-                    measures.get(iface.name, {}).get('tx_packets', 0))
-                iface.set_rx_packets(
-                    measures.get(iface.name, {}).get('rx_packets', 0))
+            for name, iface in list(self.node.interfaces.items()):
+                m = measures.get(name, {})
+                iface.set_capacity(m.get('capacity', 0))
+                iface.set_bandwidth_up(m.get('bandwidth_up', 0))
+                iface.set_bandwidth_down(m.get('bandwidth_down', 0))
+                iface.set_tx_packets(m.get('tx_packets', 0))
+                iface.set_rx_packets(m.get('rx_packets', 0))
             
             updated = update_node_specs(self.node)
             if updated[0]:
