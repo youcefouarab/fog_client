@@ -7,6 +7,6 @@ RUN apt-get update \
         xterm \
         iputils-ping net-tools iproute2 ethtool iw \
         curl wget
-WORKDIR /app
+WORKDIR /fog_client
 COPY . .
 RUN pip install -r requirements.txt
