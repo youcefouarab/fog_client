@@ -5,7 +5,7 @@ RUN apt-get update \
         nano vim \
         libpcap0.8 \
         xterm \
-        iputils-ping net-tools iproute2 ethtool \
+        iputils-ping net-tools iproute2 ethtool iw \
         curl wget
 WORKDIR /app
 COPY . .
