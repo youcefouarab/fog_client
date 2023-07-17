@@ -1,0 +1,32 @@
+FROM python:3.10-slim-bookworm
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y libpcap0.8
+WORKDIR /fog_client
+COPY . .
+RUN pip install -r requirements.txt
+
+ENV MODE=client
+ENV SERVER=127.0.0.1:8080
+ENV CPU=0
+ENV RAM=0
+ENV DISK=0
+ENV ID=
+ENV LABEL=
+ENV VERBOSE=True
+ENV COS_ID=1
+ENV DELAY=1
+ENV INTERVAL=1
+ENV THREADS=1
+ENV LIMIT=1
+ENV SEQUENTIAL=True
+ENV DATA=data+program
+
+ENTRYPOINT ["sh", "-c", \
+            "MODE=${MODE} SERVER=${SERVER} \
+            CPU=${CPU} RAM=${RAM} DISK=${DISK} \
+            ID=${ID} LABEL=${LABEL} VERBOSE=${VERBOSE} \
+            COS_ID=${COS_ID} DELAY=${DELAY} INTERVAL=${INTERVAL} \
+            THREADS=${THREADS} LIMIT=${LIMIT} SEQUENTIAL=${SEQUENTIAL} \
+            DATA=${DATA} \
+            python examples/script.py"]
