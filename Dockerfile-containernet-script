@@ -1,14 +1,4 @@
-FROM python:3.10-slim-bookworm
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y libpcap0.8 \
-        iputils-ping net-tools iproute2 ethtool iw wireless-tools \
-        curl wget \
-        nano vim \
-        xterm
-WORKDIR /fog_client
-COPY . .
-RUN pip install -r requirements.txt
+FROM fog_client:containernet
 
 ENV MODE=client
 ENV SERVER=127.0.0.1:8080
