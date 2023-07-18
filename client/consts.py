@@ -22,7 +22,6 @@ REQ_ID_LEN = 10
 MAC_LEN = 17
 IP_LEN = 15
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
-BROADCAST_IP = '255.255.255.255'
 DEFAULT_IP = '0.0.0.0'
 MY_IP = get_ip()
 HTTP_SUCCESS = 200

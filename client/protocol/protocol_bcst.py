@@ -38,6 +38,7 @@ from simulator import (get_resources, check_resources, reserve_resources,
                        free_resources, execute)
 from model import CoS, Request, Attempt, Response
 from common import IS_RESOURCE
+from utils import get_iface_from_bcst
 from consts import *
 
 
@@ -64,6 +65,16 @@ PROTO_VERBOSE = getenv('PROTOCOL_VERBOSE', False) == 'True'
 
 if PROTO_VERBOSE:
     basicConfig(level=INFO, format='%(message)s')
+
+_broadcast_ip = getenv('NETWORK_BROADCAST', None)
+if not _broadcast_ip:
+    print(' *** WARNING in protocol: '
+          'NETWORK:BROADCAST parameter missing from conf.yml. '
+          'Defaulting to 255.255.255.255.')
+    _broadcast_ip = '255.255.255.255'
+BROADCAST_IP = _broadcast_ip
+
+IFACE = get_iface_from_bcst(BROADCAST_IP)
 
 cos_dict = {cos.id: cos for cos in CoS.select()}
 cos_names = {id: cos.name for id, cos in cos_dict.items()}
@@ -212,8 +223,9 @@ class MyProtocolAM(AnsweringMachine):
     '''
 
     function_name = 'mpam'
-    sniff_options = {'filter': 'inbound'}
+    sniff_options = {'filter': 'inbound', 'iface': IFACE}
     send_function = staticmethod(send)
+    send_options = {'iface': IFACE}
 
     def is_request(self, req):
         # a packet must have Ether, IP and MyProtocol layers
@@ -502,7 +514,7 @@ def send_request(cos_id: int, data: bytes):
                     / IP(dst=BROADCAST_IP)
                     / MyProtocol(state=HREQ, req_id=req_id, cos_id=req.cos.id,
                                  attempt_no=attempt.attempt_no),
-                    timeout=PROTO_TIMEOUT, verbose=0)
+                    timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
         if hres and not req.dres_at:
             attempt.hres_at = time()
             attempt.state = RREQ
@@ -522,7 +534,7 @@ def send_request(cos_id: int, data: bytes):
                 # send and wait for response
                 rres = sr1(IP(dst=req.host)
                            / MyProtocol(state=RREQ, req_id=req_id),
-                           timeout=PROTO_TIMEOUT, verbose=0)
+                           timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
                 if rres and not req.dres_at:
                     # if late response from previous host
                     # cancel (in MyProtocolAM)
@@ -537,7 +549,7 @@ def send_request(cos_id: int, data: bytes):
                                     and pkt[MyProtocol].req_id == req_id
                                     and (pkt[MyProtocol].state == RRES
                                          or pkt[MyProtocol].state == RCAN))),
-                                filter='inbound', count=1,
+                                filter='inbound', count=1, iface=IFACE,
                                 timeout=PROTO_TIMEOUT)[0]
                         except:
                             rres = None
@@ -568,7 +580,7 @@ def send_request(cos_id: int, data: bytes):
                                    / MyProtocol(state=DREQ, req_id=req_id,
                                                 attempt_no=attempt.attempt_no,
                                                 data=data),
-                                   timeout=PROTO_TIMEOUT, verbose=0)
+                                   timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
                         if dres and not req.dres_at:
                             # if still executing, wait
                             if (dres[IP].src == req.host
@@ -591,7 +603,7 @@ def send_request(cos_id: int, data: bytes):
                                             and MyProtocol in pkt
                                             and pkt[MyProtocol].req_id == req_id
                                             and pkt[MyProtocol].state == DRES)),
-                                        filter='inbound', count=1,
+                                        filter='inbound', count=1, iface=IFACE,
                                         timeout=PROTO_TIMEOUT)[0]
                                 except:
                                     dres = None
@@ -617,7 +629,7 @@ def send_request(cos_id: int, data: bytes):
                                 info(req)
                                 send(IP(dst=req.host)
                                      / MyProtocol(state=DACK, req_id=req_id),
-                                     verbose=0)
+                                     verbose=0, iface=IFACE)
                             Thread(target=_save, args=(req,)).start()
                             return req.result
                         elif not req.dres_at:

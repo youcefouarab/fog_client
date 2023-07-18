@@ -1,4 +1,5 @@
 from socket import socket, AF_INET, SOCK_DGRAM
+from psutil import net_if_addrs
 
 
 def get_ip():
@@ -17,3 +18,14 @@ def get_ip():
         finally:
             s.close()
         return IP
+
+
+def get_iface_from_bcst(bcst: str):
+    '''
+        Returns interface name from given broadcast address.
+    '''
+
+    for name, iface in net_if_addrs().items():
+        for addr in iface:
+            if addr.family == AF_INET and addr.broadcast == bcst:
+                return name
