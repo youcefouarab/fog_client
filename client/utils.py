@@ -1,5 +1,6 @@
 from socket import socket, AF_INET, SOCK_DGRAM
 from psutil import net_if_addrs
+from ipaddress import ip_address, ip_network
 
 
 def get_ip():
@@ -18,6 +19,18 @@ def get_ip():
         finally:
             s.close()
         return IP
+
+
+def get_iface_from_network(network: str):
+    '''
+        Returns interface name from given network address.
+    '''
+
+    for name, iface in net_if_addrs().items():
+        for addr in iface:
+            if (addr.family == AF_INET 
+                    and ip_address(addr.address) in ip_network(network)):
+                return name
 
 
 def get_iface_from_bcst(bcst: str):
