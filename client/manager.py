@@ -146,10 +146,15 @@ class Manager:
             print(' *** Building node and interfaces')
         if self._mode == MODE_SWITCH:
             try:
-                id = int(kwargs['dpid'], 16)
-            except (KeyError, ValueError):
+                id = kwargs['dpid']
+                int(id, 16)
+            except KeyError:
                 print(' *** ERROR in manager._build: '
-                      'dpid kwarg invalid or missing.')
+                      'dpid kwarg missing.')
+                exit()
+            except ValueError:
+                print(' *** ERROR in manager._build: '
+                      'dpid kwarg invalid (must be hexadecimal).')
                 exit()
             type = NodeType(NodeType.SWITCH)
             label = ''
