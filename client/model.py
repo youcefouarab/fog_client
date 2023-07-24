@@ -626,8 +626,10 @@ class Request(Model):
     def __repr__(self):
         return ('\nrequest(id=%s, state=(%s), cos=%s, host=%s, hreq_at=%s, '
                 'dres_at=%s)\n' % (
-                    self.id, self._states[self.state], self.cos.name,
-                    self.host, self._t(self.hreq_at), self._t(self.dres_at)))
+                    self.id, 
+                    self._states[self.state] if self.state in self._states else self.state, 
+                    self.cos.name, self.host, self._t(self.hreq_at), 
+                    self._t(self.dres_at)))
 
     def as_dict(self, flat: bool = False):
         d = super().as_dict(flat)
