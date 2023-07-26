@@ -8,7 +8,7 @@
     Methods:
     --------
     get_config(): Send GET request to get the configuration of the protocol, 
-    the simulation, the database, etc.
+    the simulation, etc.
 
     add_node(node): Send POST request to add node to the orchestrated topology.
 
@@ -43,7 +43,7 @@ except:
 def get_config():
     '''
         Send GET request to get the configuration of the protocol, the 
-        simulation, the database, etc.
+        simulation, etc.
     '''
 
     return _ryu_get_config()

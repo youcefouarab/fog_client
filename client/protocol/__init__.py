@@ -1,3 +1,21 @@
+'''
+    This module allows to import the correct protocol among multiple from 
+    a single access point based on the mode (BROADCAST or ORCHESTRATOR).
+
+    The protocol's responder is automatically started upon import.
+
+    Methods:
+    --------
+    send_request(cos_id, data): Send a request to host a network application 
+    of Class of Service (CoS) identified by cos_id, with data as input.
+'''
+
+
+# !!IMPORTANT!!
+# This package relies on configuration received from the server after 
+# connecting to it, so it must only be imported AFTER connect() is called
+
+
 from sys import path
 from os.path import dirname
 

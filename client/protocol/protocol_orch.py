@@ -21,6 +21,11 @@
 '''
 
 
+# !!IMPORTANT!!
+# This module relies on configuration received from the server after 
+# connecting to it, so it must only be imported AFTER connect() is called
+
+
 from os import getenv
 from threading import Thread, Event
 from time import time
