@@ -1,7 +1,5 @@
 from os.path import dirname, abspath
 
-from utils import get_ip
-
 
 # protocol states
 HREQ = 1    # host request
@@ -17,13 +15,13 @@ DCAN = 10   # data exchange cancellation
 DWAIT = 11  # data exchange wait
 FAIL = 0
 
+
 # misc. consts
 REQ_ID_LEN = 10
 MAC_LEN = 17
 IP_LEN = 15
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_IP = '0.0.0.0'
-MY_IP = get_ip()
 HTTP_SUCCESS = 200
 HTTP_EXISTS = 303
 SEND_TO_BROADCAST = 'BROADCAST'

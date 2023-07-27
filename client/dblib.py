@@ -20,6 +20,11 @@
 '''
 
 
+# !!IMPORTANT!!
+# This module relies on configuration received from the server after
+# connecting to it, so it must only be imported AFTER connect() is called
+
+
 from os import getenv
 from queue import Queue
 from threading import Thread, Event
@@ -27,7 +32,8 @@ from sqlite3 import connect
 from csv import writer
 
 from model import Model, CoS, Request, Attempt, Response
-from consts import MY_IP, ROOT_PATH
+from network import MY_IP
+from consts import ROOT_PATH
 
 
 # table definitions

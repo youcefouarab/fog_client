@@ -3,7 +3,19 @@ from psutil import net_if_addrs
 from ipaddress import ip_address, ip_network
 
 
-def get_ip():
+def get_iface(network: str):
+    '''
+        Returns interface name from given network address.
+    '''
+
+    for name, iface in net_if_addrs().items():
+        for addr in iface:
+            if (addr.family == AF_INET
+                    and ip_address(addr.address) in ip_network(network)):
+                return name
+
+
+def get_default_ip():
     '''
         Returns the "primary" IP of the node (the one with a default route).
     '''
@@ -21,24 +33,19 @@ def get_ip():
         return IP
 
 
-def get_iface_from_network(network: str):
+def get_ip(network: str = None, interface: str = None):
     '''
-        Returns interface name from given network address.
-    '''
-
-    for name, iface in net_if_addrs().items():
-        for addr in iface:
-            if (addr.family == AF_INET 
-                    and ip_address(addr.address) in ip_network(network)):
-                return name
-
-
-def get_iface_from_bcst(bcst: str):
-    '''
-        Returns interface name from given broadcast address.
+        Returns: 
+            if network given: the IP of the node belonging to network
+            if interface given: the IP of the node attributed to interface 
+            if network/interface not given or incorrect: the IP of the node 
+            with a default route.
     '''
 
-    for name, iface in net_if_addrs().items():
-        for addr in iface:
-            if addr.family == AF_INET and addr.broadcast == bcst:
-                return name
+    name = interface
+    if network != None:
+        name = get_iface(network)
+    for addr in net_if_addrs().get(name, []):
+        if addr.family == AF_INET:
+            return addr.address
+    return get_default_ip()

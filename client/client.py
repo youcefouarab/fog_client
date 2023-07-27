@@ -247,6 +247,7 @@ if __name__ == '__main__':
         from protocol import PROTO_SEND_TO
         if PROTO_SEND_TO in (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR):
             # start gui
+            from network import MY_IP
             from gui import app
             app.logger.disabled = True
             Thread(target=app.run, args=('0.0.0.0',)).start()

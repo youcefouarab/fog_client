@@ -23,7 +23,7 @@
 
 
 # !!IMPORTANT!!
-# This module relies on configuration received from the server after 
+# This module relies on configuration received from the server after
 # connecting to it, so it must only be imported AFTER connect() is called
 
 
@@ -33,7 +33,6 @@ from time import time
 from string import ascii_letters, digits
 from random import choice
 from logging import info, basicConfig, INFO, root
-from ipaddress import IPv4Network
 
 from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
                        StrField, IntField, IEEEDoubleField, ConditionalField,
@@ -43,8 +42,8 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 from simulator import (get_resources, check_resources, reserve_resources,
                        free_resources, execute)
 from model import CoS, Request, Attempt, Response
+from network import IFACE, MY_IP, BROADCAST_IP
 from common import IS_RESOURCE
-from utils import get_iface_from_network
 from consts import *
 
 
@@ -71,23 +70,6 @@ PROTO_VERBOSE = getenv('PROTOCOL_VERBOSE', False) == 'True'
 
 if PROTO_VERBOSE:
     basicConfig(level=INFO, format='%(message)s')
-
-NETWORK_ADDRESS = getenv('NETWORK_ADDRESS', None)
-if not NETWORK_ADDRESS:
-    print(' *** WARNING in protocol: '
-          'NETWORK:ADDRESS parameter missing from received configuration. '
-          'Defaulting to broadcast IP 255.255.255.255.')
-    BROADCAST_IP = '255.255.255.255'
-else:
-    try:
-        BROADCAST_IP = IPv4Network(NETWORK_ADDRESS).broadcast_address.exploded
-    except:
-        print(' *** WARNING in protocol: '
-              'NETWORK:ADDRESS parameter invalid in received configuration. '
-              'Defaulting to broadcast IP 255.255.255.255.')
-        BROADCAST_IP = '255.255.255.255'
-
-IFACE = get_iface_from_network(NETWORK_ADDRESS)
 
 cos_dict = {cos.id: cos for cos in CoS.select()}
 cos_names = {id: cos.name for id, cos in cos_dict.items()}
@@ -433,7 +415,7 @@ class MyProtocolAM(AnsweringMachine):
             info('Send resource reservation response to %s' % ip_src)
             retries -= 1
             dreq = sr1(IP(dst=ip_src) / my_proto,
-                       timeout=PROTO_TIMEOUT, verbose=0)
+                       timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
             if dreq and dreq[MyProtocol].state == RCAN:
                 info('Recv resource reservation cancellation from %s' % ip_src)
                 my_proto.show()
@@ -448,7 +430,7 @@ class MyProtocolAM(AnsweringMachine):
             free_resources(_requests[_req_id])
             _requests[_req_id].state = HREQ
             my_proto.state = RCAN
-            send(IP(dst=ip_src) / my_proto, verbose=0)
+            send(IP(dst=ip_src) / my_proto, verbose=0, iface=IFACE)
 
     def _respond_data(self, my_proto, ip_src):
         info('Executing')
@@ -465,7 +447,7 @@ class MyProtocolAM(AnsweringMachine):
             info('Send data exchange response to %s' % ip_src)
             retries -= 1
             dack = sr1(IP(dst=ip_src) / my_proto,
-                       timeout=PROTO_TIMEOUT, verbose=0)
+                       timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
             if dack and dack[MyProtocol].state == DCAN:
                 info('Recv data exchange cancellation from %s' % ip_src)
                 # only free resources if still reserved
