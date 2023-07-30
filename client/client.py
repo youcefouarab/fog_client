@@ -46,6 +46,7 @@ from flask import cli
 
 from manager import Manager
 from model import Node
+from netapp_cli import netapp_cli
 from consts import (MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH,
                     SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR)
 
@@ -183,49 +184,6 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
     return mgr
 
 
-def _list_cos():
-    print()
-    for id, name in cos_names.items():
-        print(' ', id, '-', name, end=' ')
-        if id == 1:
-            print('(default)', end='')
-        print()
-    print()
-
-
-def _send_request(cos_id: int, data: bytes):
-    print(send_request(cos_id=cos_id, data=data))
-    _list_cos()
-
-
-def _cli(mode: str):
-    print()
-    print('Choose a Class of Service and click ENTER to send a request')
-    if mode == MODE_RESOURCE:
-        print('Or wait to receive requests')
-    _list_cos()
-    print()
-    from simulator import get_resources
-    get_resources(_all=True)
-    print()
-    while True:
-        cos_id = input()
-        if cos_id == '':
-            cos_id = 1
-        try:
-            cos_id = int(cos_id)
-        except:
-            print('Invalid CoS ID')
-            _list_cos()
-        else:
-            if cos_id not in cos_names:
-                print('This CoS doesn\'t exist')
-                _list_cos()
-            else:
-                Thread(target=_send_request,
-                       args=(cos_id, b'data + program')).start()
-
-
 if __name__ == '__main__':
     args = _parse_arguments()
     mode = args.mode
@@ -256,4 +214,4 @@ if __name__ == '__main__':
 
             # start cli
             from protocol import send_request, cos_names
-            _cli(mode)
+            netapp_cli(mode, send_request, cos_names)
