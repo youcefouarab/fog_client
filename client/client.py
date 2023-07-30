@@ -44,9 +44,10 @@ from sys import exit as sys_exit
 from logging import getLogger
 from flask import cli
 
-from consts import *
 from manager import Manager
 from model import Node
+from consts import (MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH,
+                    SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR)
 
 
 # disable flask console messages

@@ -66,7 +66,10 @@ except:
           'Defaulting to 3 retries.')
     PROTO_RETRIES = 3
 
-PROTO_VERBOSE = getenv('PROTOCOL_VERBOSE', False) == 'True'
+_proto_verbose = getenv('PROTOCOL_VERBOSE', '').upper()
+if _proto_verbose not in ('TRUE', 'FALSE'):
+    _proto_verbose = 'FALSE'
+PROTO_VERBOSE = _proto_verbose == 'TRUE'
 
 if PROTO_VERBOSE:
     basicConfig(level=INFO, format='%(message)s')

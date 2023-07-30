@@ -11,11 +11,6 @@
 '''
 
 
-# !!IMPORTANT!!
-# This package relies on configuration received from the server after 
-# connecting to it, so it must only be imported AFTER connect() is called
-
-
 from sys import path
 from os.path import dirname
 
@@ -23,19 +18,31 @@ from os.path import dirname
 path.append(dirname(__file__))
 
 
+# !!IMPORTANT!!
+# This package relies on configuration received from the server after 
+# connecting to it, so it must only be imported AFTER connect() is called
+
+
 from os import getenv
 
 from consts import SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR, SEND_TO_NONE
 
 
-STP_ENABLED = getenv('NETWORK_STP_ENABLED', False) == 'True'
+_stp_enabled = getenv('NETWORK_STP_ENABLED', '').upper()
+if _stp_enabled not in ('TRUE', 'FALSE'):
+    print(' *** WARNING in protocol.__init__: '
+          'NETWORK:STP_ENABLED parameter invalid or missing from received '
+          'configuration. '
+          'Defaulting to False.')
+    _stp_enabled = 'FALSE'
+STP_ENABLED = _stp_enabled == 'TRUE'
+
 _proto_send_to = getenv('PROTOCOL_SEND_TO', None)
-if (_proto_send_to == None
-        or (_proto_send_to != SEND_TO_BROADCAST
-            and _proto_send_to != SEND_TO_ORCHESTRATOR
-            and _proto_send_to != SEND_TO_NONE)
-        or (_proto_send_to == SEND_TO_BROADCAST
-            and not STP_ENABLED)):
+if (_proto_send_to not in (SEND_TO_BROADCAST, 
+                           SEND_TO_ORCHESTRATOR, 
+                           SEND_TO_NONE)
+    or (_proto_send_to == SEND_TO_BROADCAST
+        and not STP_ENABLED)):
     print(' *** WARNING in protocol.__init__: '
           'PROTOCOL:SEND_TO parameter invalid or missing from received '
           'configuration. '

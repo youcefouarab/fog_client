@@ -7,7 +7,8 @@ from re import findall
 from uuid import getnode
 
 from model import Node, NodeType, Interface
-from consts import *
+from consts import (MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS,
+                    MONITOR)
 
 
 class Manager:
@@ -206,8 +207,6 @@ class Manager:
         udp_client.close()
 
     def _update_specs(self):
-        from common import MONITOR
-        global MONITOR_PERIOD
         try:
             MONITOR_PERIOD = float(getenv('MONITOR_PERIOD', None))
         except:
@@ -239,7 +238,7 @@ class Manager:
                 iface.set_bandwidth_down(m.get('bandwidth_down', 0))
                 iface.set_tx_packets(m.get('tx_packets', 0))
                 iface.set_rx_packets(m.get('rx_packets', 0))
-            
+
             updated = update_node_specs(self.node)
             if updated[0]:
                 if self.verbose:
@@ -251,8 +250,8 @@ class Manager:
                               end='\r')
             else:
                 if self.verbose:
-                    print((' *** Specs are not being sent (%s)' 
-                           % str(updated[1])).ljust(40) , end='\r')
+                    print((' *** Specs are not being sent (%s)'
+                           % str(updated[1])).ljust(40), end='\r')
 
                 # if connection to controller was lost but is back
                 # re-add node in case it was deleted

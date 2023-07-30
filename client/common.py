@@ -1,9 +1,5 @@
 from os import getenv
 
-from monitor import Monitor
-
-
-MONITOR = Monitor()
 
 # conf
 SERVER_IP = getenv('SERVER_IP', None)
@@ -11,4 +7,7 @@ if SERVER_IP == None:
     print(' *** ERROR in common: server argument missing')
     exit()
 
-IS_RESOURCE = getenv('IS_RESOURCE', False) == 'True'
+_is_resource = getenv('IS_RESOURCE', '').upper()
+if _is_resource not in ('TRUE', 'FALSE'):
+    _is_resource = 'FALSE'
+IS_RESOURCE = _is_resource == 'TRUE'

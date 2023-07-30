@@ -18,10 +18,10 @@ SERVER = getenv('SERVER', None)
 ID = getenv('ID', None)
 LABEL = getenv('LABEL', None)
 
-_verb = getenv('VERBOSE', None)
-if _verb == None or _verb.upper() not in ('TRUE', 'FALSE'):
-    _verb = 'False'
-VERBOSE = _verb.upper() == 'TRUE'
+_verbose = getenv('VERBOSE', '').upper()
+if _verbose not in ('TRUE', 'FALSE'):
+    _verbose = 'FALSE'
+VERBOSE = _verbose == 'TRUE'
 
 if MODE == MODE_RESOURCE:
     CPU = getenv('CPU', 'None')
@@ -81,13 +81,13 @@ except:
           'Defaulting to 1.')
     LIMIT = 1
 
-_seq = getenv('SEQUENTIAL', None)
-if _seq == None or _seq.upper() not in ('TRUE', 'FALSE'):
+_sequential = getenv('SEQUENTIAL', '').upper()
+if _sequential not in ('TRUE', 'FALSE'):
     print(' *** WARNING in script: '
           'SEQUENTIAL environment variable invalid or missing. '
           'Defaulting to False.')
-    _seq = 'False'
-SEQUENTIAL = _seq.upper() == 'TRUE'
+    _sequential = 'FALSE'
+SEQUENTIAL = _sequential == 'TRUE'
 
 _data = getenv('DATA', None)
 if _data == None:

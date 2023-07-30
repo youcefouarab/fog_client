@@ -24,7 +24,7 @@ def get_default_ip():
         s.settimeout(0)
         try:
             # doesn't even have to be reachable
-            s.connect(('10.254.254.254', 1))
+            s.connect(('255.255.255.254', 1))
             IP = s.getsockname()[0]
         except Exception:
             IP = '127.0.0.1'

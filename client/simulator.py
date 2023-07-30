@@ -28,7 +28,7 @@
 
 
 # !!IMPORTANT!!
-# This module relies on configuration received from the server after 
+# This module relies on configuration received from the server after
 # connecting to it, so it must only be imported AFTER connect() is called
 
 
@@ -40,10 +40,18 @@ from psutil import net_if_addrs
 from logging import info
 
 from model import Request
-from common import MONITOR, IS_RESOURCE
+from common import IS_RESOURCE
+from consts import MONITOR
 
 
-SIM_ON = getenv('SIMULATOR_ACTIVE', False) == 'True'
+_sim_on = getenv('SIMULATOR_ACTIVE', '').upper()
+if _sim_on not in ('TRUE', 'FALSE'):
+    print(' *** WARNING in simulator: '
+          'SIMULATOR:ACTIVE parameter invalid or missing from received '
+          'configuration. '
+          'Defaulting to False.')
+    _sim_on = 'FALSE'
+SIM_ON = _sim_on == 'TRUE'
 
 if SIM_ON:
     try:
@@ -153,20 +161,20 @@ def get_resources(quiet: bool = False, _all: bool = False):
     '''
         Returns tuple of CPU count, free RAM and free disk.
     '''
-    
+
     cpu = ram = disk = 0
     if SIM_ON:
         cpu = CPU - _reserved['cpu']
         ram = RAM - _reserved['ram']
         disk = DISK - _reserved['disk']
-        #egress = EGRESS - _reserved['egress']
-        #ingress = INGRESS - _reserved['ingress']
+        # egress = EGRESS - _reserved['egress']
+        # ingress = INGRESS - _reserved['ingress']
     elif IS_RESOURCE:
         cpu = MEASURES['cpu_count'] - _reserved['cpu']
         ram = MEASURES['memory_free'] - _reserved['ram']
         disk = MEASURES['disk_free'] - _reserved['disk']
-        #egress = MEASURES[my_iface]['bandwidth_up'] - _reserved['egress']
-        #ingress = MEASURES[my_iface]['bandwidth_down'] - _reserved['ingress']
+        # egress = MEASURES[my_iface]['bandwidth_up'] - _reserved['egress']
+        # ingress = MEASURES[my_iface]['bandwidth_down'] - _reserved['ingress']
     if _all:
         print('Host\'s real capacities')
         if not SIM_ON:
