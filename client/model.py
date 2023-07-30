@@ -188,8 +188,8 @@ class InterfaceSpecs(Model):
         timestamp: Default is time of update.
     '''
 
-    def __init__(self, capacity: float = 0, bandwidth_up: float = 0, 
-                 bandwidth_down: float = 0, tx_packets: int = 0, 
+    def __init__(self, capacity: float = 0, bandwidth_up: float = 0,
+                 bandwidth_down: float = 0, tx_packets: int = 0,
                  rx_packets: int = 0, timestamp: float = 0):
         self.capacity = capacity
         self.bandwidth_up = bandwidth_up
@@ -626,10 +626,10 @@ class Request(Model):
     def __repr__(self):
         return ('\nrequest(id=%s, state=(%s), cos=%s, host=%s, hreq_at=%s, '
                 'dres_at=%s)\n' % (
-                    self.id, 
-                    self._states[self.state] if self.state in self._states 
-                                             else str(self.state), 
-                    self.cos.name, self.host, self._t(self.hreq_at), 
+                    self.id,
+                    self._states[self.state] if self.state in self._states
+                    else str(self.state),
+                    self.cos.name, self.host, self._t(self.hreq_at),
                     self._t(self.dres_at)))
 
     def as_dict(self, flat: bool = False):

@@ -28,8 +28,8 @@
 
 
 # !!IMPORTANT!!
-# This module relies on configuration received from the server after
-# connecting to it, so it must only be imported AFTER connect() is called
+# This module relies on config that is only present AFTER the connect()
+# method is called, so only import after
 
 
 from os import getenv

@@ -20,6 +20,11 @@
 '''
 
 
+# !!IMPORTANT!!
+# This module relies on config that is only present AFTER the connect()
+# method is called, so only import after
+
+
 from os import getenv
 from requests import get, post, put, delete, RequestException
 
@@ -31,7 +36,7 @@ from consts import HTTP_EXISTS, HTTP_SUCCESS
 try:
     API_PORT = int(getenv('SERVER_API_PORT', None))
 except:
-    print(' *** ERROR in api: Server API port missing.')
+    print(' *** ERROR in api: Server API port invalid or missing.')
     exit()
 
 

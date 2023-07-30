@@ -139,7 +139,8 @@ class Monitor(metaclass=SingletonMeta):
                         1e+6  # in Mbits/s
                     #  save bandwidth measurement
                     self.measures.setdefault(iface, {})
-                    self.measures[iface]['capacity'] = max_speed / 1e+6  # in Mbits/s
+                    # in Mbits/s
+                    self.measures[iface]['capacity'] = max_speed / 1e+6
                     self.measures[iface]['bandwidth_up'] = bandwidth_up
                     self.measures[iface]['bandwidth_down'] = bandwidth_down
                     self.measures[iface]['tx_packets'] = next.packets_sent

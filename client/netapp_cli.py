@@ -48,5 +48,5 @@ def netapp_cli(mode: str, send_request, cos_names: dict):
                 _list_cos(cos_names)
             else:
                 Thread(target=_send_request,
-                       args=(send_request, cos_names, 
+                       args=(send_request, cos_names,
                              cos_id, b'data + program')).start()

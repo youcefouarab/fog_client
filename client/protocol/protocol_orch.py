@@ -22,8 +22,8 @@
 
 
 # !!IMPORTANT!!
-# This module relies on configuration received from the server after
-# connecting to it, so it must only be imported AFTER connect() is called
+# This module relies on config that is only present AFTER the connect()
+# method is called, so only import after
 
 
 from os import getenv
@@ -31,7 +31,7 @@ from threading import Thread, Event
 from time import time
 from string import ascii_letters, digits
 from random import choice
-from logging import info, basicConfig, INFO
+from logging import info
 
 from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
                        StrField, IntField, ConditionalField, AnsweringMachine,
@@ -39,8 +39,9 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 
 from simulator import (check_resources, reserve_resources, free_resources,
                        execute)
-from model import Request, Attempt, CoS
+from model import Request, Attempt
 from network import IFACE, MY_IP
+from settings import *
 from consts import *
 
 
@@ -56,42 +57,6 @@ if ORCH_IP == None:
     print(' *** ERROR in protocol: '
           'CONTROLLER:DECOY_IP parameter missing from received configuration.')
     exit()
-
-# protocol config
-try:
-    PROTO_TIMEOUT = float(getenv('PROTOCOL_TIMEOUT', None))
-except:
-    print(' *** WARNING in protocol: '
-          'PROTOCOL:TIMEOUT parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to 1s.')
-    PROTO_TIMEOUT = 1
-
-try:
-    PROTO_RETRIES = float(getenv('PROTOCOL_RETRIES', None))
-except:
-    print(' *** WARNING in protocol: '
-          'PROTOCOL:RETRIES parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to 3 retries.')
-    PROTO_RETRIES = 3
-
-_proto_verbose = getenv('PROTOCOL_VERBOSE', '').upper()
-if _proto_verbose not in ('TRUE', 'FALSE'):
-    _proto_verbose = 'FALSE'
-PROTO_VERBOSE = _proto_verbose == 'TRUE'
-
-if PROTO_VERBOSE:
-    basicConfig(level=INFO, format='%(message)s')
-
-cos_dict = {cos.id: cos for cos in CoS.select()}
-cos_names = {id: cos.name for id, cos in cos_dict.items()}
-
-# dict of requests sent by consumer (keys are request IDs)
-requests = {'_': None}  # '_' is placeholder
-# fill with existing request IDs from DB to avoid conflict when generating IDs
-requests.update(
-    {req[0]: None for req in Request.select(fields=('id',), as_obj=False)})
 
 # dict of requests received by provider (keys are (src IP, request ID))
 _requests = {}

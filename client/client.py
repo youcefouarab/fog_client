@@ -4,9 +4,9 @@
     of a node in the orchestrated topology in one of three modes: client, 
     resource, or switch.
 
-    In all modes, the -s/--server option in the CLI is required to specify the 
-    server's IP and API port. Verbosity can also be activated using the 
-    -v/--verbose option, so a detailed output will be produced on the console.
+    In all modes, the -s/--server option is required to specify the server's 
+    IP and API port. Verbosity can also be activated using the -v/--verbose 
+    option, so a detailed output will be produced on the console.
 
     Client mode means the node participates in the orchestration but only to 
     request resources; it has no resources of its own to offer.
@@ -37,12 +37,13 @@
 
 from os import environ
 from threading import Thread
-from argparse import ArgumentParser, ArgumentTypeError
+from argparse import ArgumentParser
 from atexit import register as at_exit
 from signal import signal, SIGINT
 from sys import exit as sys_exit
 from logging import getLogger
 from flask import cli
+from ipaddress import ip_address
 
 from manager import Manager
 from model import Node
@@ -56,23 +57,6 @@ getLogger('werkzeug').disabled = True
 cli.show_server_banner = lambda *args: None
 
 
-def valid_server(s):
-    try:
-        environ['SERVER_IP'], environ['SERVER_API_PORT'] = s.split(':')
-    except ValueError:
-        raise ArgumentTypeError(
-            '--server format must be IP:PORT (e.g. 127.0.0.1:8080)')
-
-
-def valid_resources(**kwargs):
-    environ['IS_RESOURCE'] = 'True'
-    environ['HOST_CPU'] = str(kwargs['cpu'])
-    environ['HOST_RAM'] = str(kwargs['ram'])
-    environ['HOST_DISK'] = str(kwargs['disk'])
-    # environ['HOST_INGRESS'] = str(kwargs['ingress'])
-    # environ['HOST_EGRESS'] = str(kwargs['egress'])
-
-
 parser = ArgumentParser()
 
 
@@ -83,7 +67,6 @@ def _parse_arguments():
     s_parser.add_argument('-d', '--dpid', metavar='dpid', required=True,
                           help='Bridge datapath ID (in hexadecimal).')
     s_parser.add_argument('-s', '--server', metavar='server', required=True,
-                          # type=valid_server,
                           help='Server IP and API port. Format is IP:PORT.')
     s_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
@@ -91,7 +74,6 @@ def _parse_arguments():
     # client mode
     c_parser = subparsers.add_parser(MODE_CLIENT, help='Connect as client.')
     c_parser.add_argument('-s', '--server', metavar='server', required=True,
-                          # type=valid_server,
                           help='Server IP and API port. Format is IP:PORT.')
     c_parser.add_argument('-i', '--id', metavar='id', default=None,
                           help='Custom node ID (for simulations).')
@@ -104,7 +86,6 @@ def _parse_arguments():
     r_parser = subparsers.add_parser(
         MODE_RESOURCE, help='Connect as resource.')
     r_parser.add_argument('-s', '--server', metavar='server', required=True,
-                          # type=valid_server,
                           help='Server IP and API port. Format is IP:PORT.')
     r_parser.add_argument('-i', '--id', metavar='id', default=None,
                           help='Custom node ID (for simulations).')
@@ -166,11 +147,25 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
         parser.print_help()
         sys_exit()
 
+    try:
+        server_ip, server_api_port = server.split(':')
+        environ['SERVER_IP'] = ip_address(server_ip).exploded
+        environ['SERVER_API_PORT'] = str(int(server_api_port))
+    except:
+        print(' *** ERROR in client: '
+              'server format must be IP:PORT (e.g. 127.0.0.1:8080)')
+        exit()
+
+    if mode == MODE_RESOURCE:
+        environ['IS_RESOURCE'] = 'True'
+        environ['HOST_CPU'] = str(kwargs['cpu'])
+        environ['HOST_RAM'] = str(kwargs['ram'])
+        environ['HOST_DISK'] = str(kwargs['disk'])
+        # environ['HOST_INGRESS'] = str(kwargs['ingress'])
+        # environ['HOST_EGRESS'] = str(kwargs['egress'])
+
     environ['PROTOCOL_VERBOSE'] = str(verbose)
 
-    valid_server(server)
-    if mode == MODE_RESOURCE:
-        valid_resources(**kwargs)
     mgr = Manager(node, verbose)
 
     # disconnect at exit
@@ -213,5 +208,8 @@ if __name__ == '__main__':
             print('\nGUI started at http://' + MY_IP + ':8050')
 
             # start cli
-            from protocol import send_request, cos_names
-            netapp_cli(mode, send_request, cos_names)
+            from protocol import send_request
+            from model import CoS
+            netapp_cli(mode, send_request, {
+                cos[0]: cos[1] for cos in sorted(
+                    CoS.select(fields=('id', 'name'), as_obj=False))})
