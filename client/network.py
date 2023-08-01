@@ -25,5 +25,5 @@ else:
         #      'Defaulting to broadcast IP 255.255.255.255.')
         BROADCAST_IP = '255.255.255.255'
 
-IFACE = get_iface(NETWORK_ADDRESS)
-MY_IP = get_ip(interface=IFACE)
+MY_IFACE = get_iface(NETWORK_ADDRESS)
+MY_IP = get_ip(interface=MY_IFACE)

@@ -317,20 +317,31 @@ class NodeSpecs(Model):
 
         Attributes:
         -----------
-        cpu: Number of CPUs. Default is 0.
+        cpu_count: Number of CPUs. Default is 0.
 
-        ram: Size of free RAM. Default is 0.
+        cpu_free: Amount of free CPU. Default is 0.
 
-        disk: Size of free disk. Default is 0.
+        memory_total: Total size of RAM. Default is 0.
+
+        memory_free: Size of free RAM. Default is 0.
+
+        disk_total: Total size of disk. Default is 0.
+
+        disk_free: Size of free disk. Default is 0.
 
         timestamp: Default is time of update.
     '''
 
-    def __init__(self, cpu: int = 0, ram: float = 0, disk: float = 0,
+    def __init__(self, cpu_count: int = 0, cpu_free: float = 0,
+                 memory_total: float = 0, memory_free: float = 0,
+                 disk_total: float = 0, disk_free: float = 0,
                  timestamp: float = 0):
-        self.cpu = cpu
-        self.ram = ram
-        self.disk = disk
+        self.cpu_count = cpu_count
+        self.cpu_free = cpu_free
+        self.memory_total = memory_total
+        self.memory_free = memory_free
+        self.disk_total = disk_total
+        self.disk_free = disk_free
         self.timestamp = timestamp if timestamp else time()
 
 
@@ -363,7 +374,10 @@ class Node(Model):
         self.type = type
         self.label = label
         self.interfaces = interfaces if interfaces else {}
+        self.main_interface = None  # string (name)
         self.specs = specs if specs else NodeSpecs()
+        # float (gross value; to get percentage, multiply by 100)
+        self.threshold = 1
 
     def as_dict(self, flat: bool = False):
         d = super().as_dict(flat)
@@ -385,25 +399,46 @@ class Node(Model):
     # they are implemented (whether they are attributes in the object, are
     # objects themselves within an Iterable, etc.)
 
-    def get_cpu(self):
-        return self.specs.cpu
+    def get_cpu_count(self):
+        return self.specs.cpu_count
 
-    def set_cpu(self, cpu: int = 0):
-        self.specs.cpu = cpu
+    def set_cpu_count(self, cpu_count: int = 0):
+        self.specs.cpu_count = cpu_count
         self.set_timestamp()
 
-    def get_ram(self):
-        return self.specs.ram
+    def get_cpu_free(self):
+        return self.specs.cpu_free
 
-    def set_ram(self, ram: float = 0):
-        self.specs.ram = ram
+    def set_cpu_free(self, cpu_free: int = 0):
+        self.specs.cpu_free = cpu_free
         self.set_timestamp()
 
-    def get_disk(self):
-        return self.specs.disk
+    def get_memory_total(self):
+        return self.specs.memory_total
 
-    def set_disk(self, disk: float = 0):
-        self.specs.disk = disk
+    def set_memory_total(self, memory_total: float = 0):
+        self.specs.memory_total = memory_total
+        self.set_timestamp()
+
+    def get_memory_free(self):
+        return self.specs.memory_free
+
+    def set_memory_free(self, memory_free: float = 0):
+        self.specs.memory_free = memory_free
+        self.set_timestamp()
+
+    def get_disk_total(self):
+        return self.specs.disk_total
+
+    def set_disk_total(self, disk_total: float = 0):
+        self.specs.disk_total = disk_total
+        self.set_timestamp()
+
+    def get_disk_free(self):
+        return self.specs.disk_free
+
+    def set_disk_free(self, disk_free: float = 0):
+        self.specs.disk_free = disk_free
         self.set_timestamp()
 
     def get_timestamp(self):
@@ -432,7 +467,8 @@ class CoSSpecs(Model):
 
         max_jitter: Default is inf.
 
-        max_loss_rate: Default is 1.
+        max_loss_rate: Default is 1 (gross value; to get percentage, 
+        multiply by 100).
 
         min_cpu: Default is 0.
 
@@ -449,7 +485,7 @@ class CoSSpecs(Model):
                  max_delay: float = float('inf'),
                  max_jitter: float = float('inf'),
                  max_loss_rate: float = 1,
-                 min_cpu: int = 0,
+                 min_cpu: float = 0,
                  min_ram: float = 0,
                  min_disk: float = 0):
         self.max_response_time = max_response_time
@@ -545,7 +581,7 @@ class CoS(Model):
     def get_min_cpu(self):
         return self.specs.min_cpu
 
-    def set_min_cpu(self, cpu: int = 0):
+    def set_min_cpu(self, cpu: float = 0):
         self.specs.min_cpu = cpu
 
     def get_min_ram(self):
@@ -746,7 +782,7 @@ class Response(Model):
 
         host: Network application host IP address.
 
-        cpu: Number of CPUs offered by host.
+        cpu: Amount of CPU offered by host.
 
         ram: RAM size offered by host.
 
@@ -755,9 +791,8 @@ class Response(Model):
         timestamp: Response timestamp.
     '''
 
-    def __init__(self, req_id, attempt_no: int, host: str, cpu: int = None,
-                 ram: float = None, disk: float = None,
-                 timestamp: float = 0):
+    def __init__(self, req_id, attempt_no: int, host: str, cpu: float = None,
+                 ram: float = None, disk: float = None, timestamp: float = 0):
         self.req_id = req_id
         self.attempt_no = attempt_no
         self.host = host

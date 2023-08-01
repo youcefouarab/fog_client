@@ -1,10 +1,5 @@
 from os.path import dirname, abspath
 
-from monitor import Monitor
-
-
-MONITOR = Monitor()
-
 
 # protocol states
 HREQ = 1    # host request

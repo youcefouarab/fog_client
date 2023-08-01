@@ -19,9 +19,10 @@
     (this is useful, and sometimes necessary to avoid conflicts, in simulations 
     and/or emulations like Mininet).
 
-    If the mode is 'resource' and simulation is active, it is possible to 
-    specify simulated values for CPU, RAM, and disk through the -c/--cpu,
-    -r/--ram, and -d/--disk options respectively.
+    If the mode is 'resource', the usage limit can be specified through the 
+    -m/--limit option (as a percentage %). Furthermore, if the simulation is 
+    active, it is possible to specify simulated values for CPU, RAM, and disk 
+    through the -c/--cpu, -r/--ram, and -d/--disk options respectively.
 
     Switch mode can be used when a switch's particular implementation is not 
     fully recognized by the controller (example: using VxLAN to establish 
@@ -91,6 +92,8 @@ def _parse_arguments():
                           help='Custom node ID (for simulations).')
     r_parser.add_argument('-l', '--label', metavar='label', default=None,
                           help='Custom node label (for simulations).')
+    r_parser.add_argument('-m', '--limit', metavar='limit', default=None,
+                          help='Resource usage limit percentage (%).')
     r_parser.add_argument('-c', '--cpu', metavar='cpu', default=None,
                           help='Number of simulated CPUs.')
     r_parser.add_argument('-r', '--ram', metavar='ram', default=None,
@@ -124,9 +127,10 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
         respectively (this is useful, and sometimes necessary to avoid 
         conflicts, in simulations and/or emulations like Mininet).
 
-        If the mode is 'resource' and simulation is active, it is possible to 
-        specify simulated values for CPU, RAM, and disk through the 'cpu',
-        'ram', and 'disk' kwargs respectively.
+        If the mode is 'resource', the usage limit can be specified through 
+        the 'limit' kwarg (as a percentage %). Furthermore, if the simulation 
+        is active, it is possible to specify simulated values for CPU, RAM, 
+        and disk through the 'cpu', 'ram', and 'disk' kwargs respectively.
 
         Switch mode can be used when a switch's particular implementation is 
         not fully recognized by the controller (example: using VxLAN to 
@@ -158,6 +162,7 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
 
     if mode == MODE_RESOURCE:
         environ['IS_RESOURCE'] = 'True'
+        environ['RESOURCE_LIMIT'] = str(kwargs['limit'])
         environ['HOST_CPU'] = str(kwargs['cpu'])
         environ['HOST_RAM'] = str(kwargs['ram'])
         environ['HOST_DISK'] = str(kwargs['disk'])
@@ -188,8 +193,8 @@ if __name__ == '__main__':
                 id=args.id, label=args.label)
     elif mode == MODE_RESOURCE:
         connect(mode, args.server, verbose=args.verbose != False,
-                id=args.id, label=args.label, cpu=args.cpu, ram=args.ram,
-                disk=args.disk)
+                id=args.id, label=args.label, limit=args.limit, cpu=args.cpu,
+                ram=args.ram, disk=args.disk)
     elif mode == MODE_SWITCH:
         connect(mode, args.server, verbose=args.verbose != False,
                 dpid=args.dpid)
@@ -205,7 +210,11 @@ if __name__ == '__main__':
             from gui import app
             app.logger.disabled = True
             Thread(target=app.run, args=('0.0.0.0',)).start()
-            print('\nGUI started at http://' + MY_IP + ':8050')
+            print('\nGUI started at http://' + MY_IP + ':8050\n')
+
+            # show host resources
+            from simulator import get_resources
+            get_resources(_all=True)
 
             # start cli
             from protocol import send_request

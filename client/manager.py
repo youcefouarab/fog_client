@@ -7,8 +7,7 @@ from re import findall
 from uuid import getnode
 
 from model import Node, NodeType, Interface
-from consts import (MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS,
-                    MONITOR)
+from consts import MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS
 
 
 class Manager:
@@ -68,8 +67,6 @@ class Manager:
         '''
 
         self._mode = mode
-        if not self.node:
-            self._build(**kwargs)
 
         from api import get_config, add_node
         conf = None
@@ -86,10 +83,15 @@ class Manager:
         if self.verbose:
             print()
             print(' *** Done')
+
+        if not self.node:
+            self._build(**kwargs)
+
         if mode == MODE_CLIENT or mode == MODE_RESOURCE:
+            code = None
             while not self._connected:
                 if self.verbose:
-                    print(' *** Connecting', end='\r')
+                    print((' *** Connecting (%s)' % str(code)).ljust(40), end='\r')
                 added, code = add_node(self.node)
                 if code == HTTP_EXISTS:
                     print(' *** ERROR: Already connected')
@@ -168,6 +170,14 @@ class Manager:
                 label = self._get_label()
             type = NodeType(NodeType.SERVER)
         self.node = Node(id, True, type, label)
+
+        from network import MY_IFACE
+        self.node.main_interface = MY_IFACE
+        from common import IS_RESOURCE
+        if IS_RESOURCE:
+            from simulator import THRESHOLD
+            self.node.threshold = THRESHOLD
+
         for name, snics in net_if_addrs().items():
             if name != 'lo':
                 interface = Interface(name)
@@ -207,37 +217,39 @@ class Manager:
         udp_client.close()
 
     def _update_specs(self):
-        try:
-            MONITOR_PERIOD = float(getenv('MONITOR_PERIOD', None))
-        except:
-            print(' *** WARNING in manager._update_specs: '
-                  'MONITOR_PERIOD parameter invalid or missing from received '
-                  'configuration. '
-                  'Defaulting to 1s.')
-            MONITOR_PERIOD = 1
-        MONITOR.set_monitor_period(MONITOR_PERIOD)
-        MONITOR.start()
-        measures = MONITOR.measures
-
-        from simulator import get_resources
+        from simulator import MONITOR, MONITOR_PERIOD, SIM_ON, get_resources
         from api import add_node, update_node_specs
+
+        MEASURES = MONITOR.measures
+
+        # constant measures
+        if self._mode == MODE_RESOURCE:
+            if SIM_ON:
+                from simulator import CPU, RAM, DISK
+                self.node.set_cpu_count(CPU)
+                self.node.set_memory_total(RAM)
+                self.node.set_disk_total(DISK)
+            else:
+                self.node.set_cpu_count(MEASURES['cpu_count'])
+                self.node.set_memory_total(MEASURES['memory_total'])
+                self.node.set_disk_total(MEASURES['disk_total'])
 
         while self._connected:
             sleep(MONITOR_PERIOD)
-            # resources are gotten from simulator
-            cpu, ram, disk = get_resources(True)
+            # current resources are gotten from simulator
             if self._mode == MODE_RESOURCE:
-                self.node.set_cpu(cpu)
-                self.node.set_ram(ram)
-                self.node.set_disk(disk)
+                cpu, ram, disk = get_resources(quiet=True)
+                self.node.set_cpu_free(cpu)
+                self.node.set_memory_free(ram)
+                self.node.set_disk_free(disk)
             # other stats are gotten from monitor
             for name, iface in list(self.node.interfaces.items()):
-                m = measures.get(name, {})
-                iface.set_capacity(m.get('capacity', 0))
-                iface.set_bandwidth_up(m.get('bandwidth_up', 0))
-                iface.set_bandwidth_down(m.get('bandwidth_down', 0))
-                iface.set_tx_packets(m.get('tx_packets', 0))
-                iface.set_rx_packets(m.get('rx_packets', 0))
+                M = MEASURES.get(name, {})
+                iface.set_capacity(M.get('capacity', 0))
+                iface.set_bandwidth_up(M.get('bandwidth_up', 0))
+                iface.set_bandwidth_down(M.get('bandwidth_down', 0))
+                iface.set_tx_packets(M.get('tx_packets', 0))
+                iface.set_rx_packets(M.get('rx_packets', 0))
 
             updated = update_node_specs(self.node)
             if updated[0]:

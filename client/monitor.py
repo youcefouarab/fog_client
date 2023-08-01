@@ -1,7 +1,7 @@
 from threading import Thread
 from time import monotonic, sleep
 from psutil import net_if_addrs, net_if_stats, net_io_counters
-from psutil import cpu_count, virtual_memory, disk_usage
+from psutil import cpu_count, cpu_percent, virtual_memory, disk_usage
 from socket import socket, AF_INET, SOCK_STREAM
 
 from meta import SingletonMeta
@@ -32,6 +32,7 @@ class Monitor(metaclass=SingletonMeta):
 
         {\n
         \t  'cpu_count': <int>,\n
+        \t  'cpu_free': <float>,\n
         \t  'memory_total: <float>, # in MB\n
         \t  'memory_free': <float>, # in MB\n
         \t  'disk_total': <float>, # in GB\n
@@ -100,7 +101,10 @@ class Monitor(metaclass=SingletonMeta):
         io = net_io_counters(pernic=True)
         while self._run:
             # node specs
-            self.measures['cpu_count'] = cpu_count()
+            cpus = cpu_count()
+            self.measures['cpu_count'] = cpus
+            self.measures['cpu_free'] = (cpus
+                                         - sum(cpu_percent(percpu=True)) / 100)
             mem = virtual_memory()
             self.measures['memory_total'] = mem.total / 1e+6  # in MB
             self.measures['memory_free'] = mem.available / 1e+6  # in MB

@@ -40,7 +40,7 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 from simulator import (check_resources, reserve_resources, free_resources,
                        execute)
 from model import Request, Attempt
-from network import IFACE, MY_IP
+from network import MY_IFACE, MY_IP
 from settings import *
 from consts import *
 
@@ -177,7 +177,7 @@ class MyProtocol(Packet):
         # if (self.state == RREQ or self.state == RRES or self.state == DACK
         #        or self.state == DCAN):
         #    _suffix = self.src_ip
-        return self.req_id + str(self.attempt_no).encode() + _suffix
+        return self.req_id + _suffix
 
     def answers(self, other):
         if (isinstance(other, MyProtocol)
@@ -217,9 +217,9 @@ class MyProtocolAM(AnsweringMachine):
     '''
 
     function_name = 'mpam'
-    sniff_options = {'filter': 'inbound', 'iface': IFACE}
+    sniff_options = {'filter': 'inbound', 'iface': MY_IFACE}
     send_function = staticmethod(send)
-    send_options = {'iface': IFACE}
+    send_options = {'iface': MY_IFACE}
 
     def is_request(self, req):
         # a packet must have Ether, IP and MyProtocol layers
@@ -263,7 +263,7 @@ class MyProtocolAM(AnsweringMachine):
                 # else they became no longer sufficient in time between
                 # HREQ and RREQ
                 else:
-                    info('Resources are not sufficient')
+                    info('Resources are not sufficient (will exceed limit)')
                     info('Send resource reservation cancellation to '
                          'orchestrator')
                     _requests[_req_id].state = RREQ
@@ -302,7 +302,7 @@ class MyProtocolAM(AnsweringMachine):
                     _requests[_req_id].state = RRES
                     _requests[_req_id]._freed = False
                 else:
-                    info('and resources are no longer sufficient')
+                    info('and resources are no longer sufficient (will exceed limit)')
                     info('Send data exchange cancellation to %s' % ip_src)
                     _requests[_req_id].state = DCAN
                     my_proto.state = DCAN
@@ -397,7 +397,7 @@ class MyProtocolAM(AnsweringMachine):
             info('Send resource reservation response to orchestrator')
             retries -= 1
             rack = sr1(IP(dst=ORCH_IP) / my_proto,
-                       timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
+                       timeout=PROTO_TIMEOUT, verbose=0, iface=MY_IFACE)
         if rack:
             if rack[MyProtocol].state == RCAN:
                 info('Recv resource reservation cancellation from orchestrator')
@@ -431,7 +431,7 @@ class MyProtocolAM(AnsweringMachine):
             free_resources(_requests[_req_id])
             info('Send resource reservation cancellation to orchestrator')
             my_proto.state = RCAN
-            send(IP(dst=ORCH_IP) / my_proto, verbose=0, iface=IFACE)
+            send(IP(dst=ORCH_IP) / my_proto, verbose=0, iface=MY_IFACE)
 
     def _respond_data(self, my_proto, ip_src, _req_id):
         info('Executing')
@@ -446,7 +446,7 @@ class MyProtocolAM(AnsweringMachine):
         while retries:
             info('Send data exchange response to %s' % ip_src)
             retries -= 1
-            send(IP(dst=ip_src) / my_proto, verbose=0, iface=IFACE)
+            send(IP(dst=ip_src) / my_proto, verbose=0, iface=MY_IFACE)
             _events[_req_id].wait(PROTO_TIMEOUT)
             if _events[_req_id].is_set():
                 return
@@ -506,7 +506,7 @@ def send_request(cos_id: int, data: bytes):
                     / IP(dst=ORCH_IP)
                     / MyProtocol(state=HREQ, req_id=req_id, cos_id=req.cos.id,
                                  attempt_no=attempt.attempt_no),
-                    timeout=PROTO_TIMEOUT * PROTO_RETRIES, verbose=0, iface=IFACE)
+                    timeout=PROTO_TIMEOUT * PROTO_RETRIES, verbose=0, iface=MY_IFACE)
         if hres and not req.dres_at:
             attempt.hres_at = time()
             attempt.state = DREQ
@@ -530,7 +530,7 @@ def send_request(cos_id: int, data: bytes):
                             / MyProtocol(state=DREQ, req_id=req_id,
                                          attempt_no=attempt.attempt_no,
                                          data=data),
-                            timeout=PROTO_TIMEOUT, verbose=0, iface=IFACE)
+                            timeout=PROTO_TIMEOUT, verbose=0, iface=MY_IFACE)
                 if dres and not req.dres_at:
                     # if still executing, wait
                     if dres[MyProtocol].state == DWAIT:
@@ -564,7 +564,7 @@ def send_request(cos_id: int, data: bytes):
                               / MyProtocol(state=DACK, req_id=req_id,
                                            host_ip=req.host.ljust(IP_LEN, ' '),
                                            host_mac=host_mac),
-                              verbose=0, iface=IFACE)
+                              verbose=0, iface=MY_IFACE)
                     Thread(target=_save, args=(req,)).start()
                     return req.result
                 elif not req.dres_at:

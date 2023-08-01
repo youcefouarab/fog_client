@@ -110,7 +110,7 @@ def _ryu_request(method: str, path: str, data: dict = {}):
         code = r.status_code
         return ((code == HTTP_SUCCESS or code == HTTP_EXISTS), code)
 
-    except (RequestException, ValueError) as e:
+    except (RequestException, ValueError):
         return None, None
 
 
@@ -120,6 +120,8 @@ def _ryu_add_node(node: Node):
         'state': node.state,
         'type': node.type.value,
         'label': node.label,
+        'main_interface': node.main_interface,
+        'threshold': node.threshold,
         'interfaces': [{
             'name': iface.name,
             'num': iface.num,
@@ -139,9 +141,12 @@ def _ryu_delete_node(node: Node):
 
 def _ryu_update_node_specs(node: Node):
     return _ryu_request('put', '/node_specs/' + str(node.id), {
-        'cpu_count': node.get_cpu(),
-        'memory_free': node.get_ram(),
-        'disk_free': node.get_disk(),
+        'cpu_count': node.get_cpu_count(),
+        'cpu_free': node.get_cpu_free(),
+        'memory_total': node.get_memory_total(),
+        'memory_free': node.get_memory_free(),
+        'disk_total': node.get_disk_total(),
+        'disk_free': node.get_disk_free(),
         'timestamp': node.get_timestamp(),
         'interfaces': [{
             'name': iface.name,

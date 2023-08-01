@@ -24,19 +24,20 @@ if _verbose not in ('TRUE', 'FALSE'):
 VERBOSE = _verbose == 'TRUE'
 
 if MODE == MODE_RESOURCE:
+    LIMIT = getenv('LIMIT', 'None')
     CPU = getenv('CPU', 'None')
     RAM = getenv('RAM', 'None')
     DISK = getenv('DISK', 'None')
-    #INGRESS = getenv('INGRESS', 'None')
-    #EGRESS = getenv('EGRESS', 'None')
+    # INGRESS = getenv('INGRESS', 'None')
+    # EGRESS = getenv('EGRESS', 'None')
 
 
 print()
 if MODE == MODE_CLIENT:
     connect(MODE, SERVER, verbose=VERBOSE, id=ID, label=LABEL)
 if MODE == MODE_RESOURCE:
-    connect(MODE, SERVER, verbose=VERBOSE, id=ID, label=LABEL, cpu=CPU, 
-            ram=RAM, disk=DISK)
+    connect(MODE, SERVER, verbose=VERBOSE, id=ID, label=LABEL, limit=LIMIT,
+            cpu=CPU, ram=RAM, disk=DISK)
 print()
 sleep(1)
 
@@ -74,12 +75,12 @@ except:
     THREADS = 1
 
 try:
-    LIMIT = int(getenv('LIMIT', None))
+    TOTAL = int(getenv('TOTAL', None))
 except:
     print(' *** WARNING in script: '
-          'LIMIT environment variable invalid or missing. '
+          'TOTAL environment variable invalid or missing. '
           'Defaulting to 1.')
-    LIMIT = 1
+    TOTAL = 1
 
 _sequential = getenv('SEQUENTIAL', '').upper()
 if _sequential not in ('TRUE', 'FALSE'):
@@ -106,11 +107,11 @@ def _send_request(index: int, cos_id: int, data: bytes):
 
 
 def _send_requests():
-    limit = LIMIT
+    total = TOTAL
     index = 0
     sleep(DELAY)
-    while limit != 0:
-        limit -= 1
+    while total != 0:
+        total -= 1
         index += 1
         if SEQUENTIAL:
             _send_request(index, COS_ID, DATA)

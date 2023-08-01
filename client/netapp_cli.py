@@ -29,10 +29,6 @@ def netapp_cli(mode: str, send_request, cos_names: dict):
     if mode == MODE_RESOURCE:
         print('Or wait to receive requests')
     _list_cos(cos_names)
-    print()
-    from simulator import get_resources
-    get_resources(_all=True)
-    print()
     while True:
         cos_id = input()
         if cos_id == '':

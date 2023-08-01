@@ -66,7 +66,7 @@ create table if not exists responses (
 	req_id text not null,
   	attempt_no integer not null,
     host text not null,
-    cpu integer,
+    cpu real,
     ram real,
     disk real,
     timestamp real,
