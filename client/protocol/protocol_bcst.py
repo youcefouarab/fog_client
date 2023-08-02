@@ -247,7 +247,7 @@ class MyProtocolAM(AnsweringMachine):
 
             att_no = my_proto.attempt_no
             requests[req_id].attempts[att_no].responses[ip_src] = Response(
-                req_id, att_no, ip_src, my_proto.cpu_offer, my_proto.ram_offer, 
+                req_id, att_no, ip_src, my_proto.cpu_offer, my_proto.ram_offer,
                 my_proto.disk_offer)
             return
 
@@ -620,13 +620,6 @@ def _save(req: Request):
         for response in attempt.responses.values():
             response.insert()
 
-    #  send request to server (for logging)
-    sent, code = add_request(req)
-    if not sent:
-        print(' *** ERROR in protocol: '
-              'Request info failed to send to server for logging (%d). '
-              'Only saved locally.' % code)
-
     # save locally
     # if simulation is active (like mininet), create different CSV files for
     # different hosts (add IP address to file name)
@@ -634,3 +627,10 @@ def _save(req: Request):
     Request.as_csv(_suffix=_suffix)
     Attempt.as_csv(_suffix=_suffix)
     Response.as_csv(_suffix=_suffix)
+
+    #  send request to server (for logging)
+    sent, code = add_request(req)
+    if not sent:
+        print(' *** ERROR in protocol: '
+              'Request info failed to send to server for logging (%s). '
+              'Only saved locally.' % str(code))

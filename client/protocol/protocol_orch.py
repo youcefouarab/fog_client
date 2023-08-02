@@ -591,16 +591,16 @@ def _save(req: Request):
     for attempt in req.attempts.values():
         attempt.insert()
 
-    #  send request to server (for logging)
-    sent, code = add_request(req)
-    if not sent:
-        print(' *** ERROR in protocol: '
-              'Request info failed to send to server for logging (%d). '
-              'Only saved locally.' % code)
-
     # save locally
     # if simulation is active (like mininet), create different CSV files for
     # different hosts (add IP address to file name)
     _suffix = '.' + MY_IP
     Request.as_csv(_suffix=_suffix)
     Attempt.as_csv(_suffix=_suffix)
+
+    #  send request to server (for logging)
+    sent, code = add_request(req)
+    if not sent:
+        print(' *** ERROR in protocol: '
+              'Request info failed to send to server for logging (%s). '
+              'Only saved locally.' % str(code))
