@@ -17,6 +17,8 @@
 
     update_node_specs(node): Send PUT request to update node specs (including 
     interface specs).
+
+    add_request(req): Send POST request to add req to Requests database.
 '''
 
 
@@ -28,7 +30,7 @@
 from os import getenv
 from requests import get, post, put, delete, RequestException
 
-from model import Node
+from model import Node, Request
 from common import SERVER_IP
 from consts import HTTP_EXISTS, HTTP_SUCCESS
 
@@ -84,6 +86,16 @@ def update_node_specs(node: Node):
     return _ryu_update_node_specs(node)
 
 
+def add_request(req: Request):
+    '''
+        Send POST request to add req to Requests database.
+
+        Returns (state, code), where state is True if added, False if not.
+    '''
+
+    return _ryu_add_request(req)
+
+
 # ===============
 #     RYU API
 # ===============
@@ -114,6 +126,10 @@ def _ryu_request(method: str, path: str, data: dict = {}):
         return None, None
 
 
+def _ryu_get_config():
+    return _ryu_request('get', '/config')
+
+
 def _ryu_add_node(node: Node):
     return _ryu_request('post', '/node', {
         'id': node.id,
@@ -129,10 +145,6 @@ def _ryu_add_node(node: Node):
             'ipv4': iface.ipv4
         } for iface in list(node.interfaces.values())]
     })
-
-
-def _ryu_get_config():
-    return _ryu_request('get', '/config')
 
 
 def _ryu_delete_node(node: Node):
@@ -157,4 +169,35 @@ def _ryu_update_node_specs(node: Node):
             'rx_packets': iface.get_rx_packets(),
             'timestamp': iface.get_timestamp()
         } for iface in list(node.interfaces.values())]
+    })
+
+
+def _ryu_add_request(req: Request):
+    from network import MY_IP
+    return _ryu_request('post', '/request', {
+        'id': req.id,
+        'src': MY_IP,
+        'cos_id': req.cos.id,
+        'data': req.data.decode(),
+        'result': req.result.decode(),
+        'host': req.host,
+        'state': req.state,
+        'hreq_at': req.hreq_at,
+        'dres_at': req.dres_at,
+        'attempts': [{
+            'attempt_no': attempt.attempt_no,
+            'host': attempt.host,
+            'state': attempt.state,
+            'hreq_at': attempt.hreq_at,
+            'hres_at': attempt.hres_at,
+            'rres_at': attempt.rres_at,
+            'dres_at': attempt.dres_at,
+            'responses': [{
+                'host': response.host,
+                'cpu': response.cpu,
+                'ram': response.ram,
+                'disk': response.disk,
+                'timestamp': response.timestamp,
+            } for response in list(attempt.responses.values())]
+        } for attempt in list(req.attempts.values())]
     })

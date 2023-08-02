@@ -366,8 +366,13 @@ def _convert(itr: list, cls):
                 })
 
         if cls.__name__ is Attempt.__name__:
-            obj = Attempt(item[0], item[1], item[2], item[3], item[4], item[5],
-                          item[6], item[7])
+            obj = Attempt(
+                item[0], item[1], item[2], item[3], item[4], item[5], item[6],
+                item[7], {
+                    resp.host: resp
+                    for resp in select(Response, req_id=('=', item[0]),
+                                       attempt_no=('=', item[1]))
+                })
 
         if cls.__name__ is Response.__name__:
             obj = Response(item[0], item[1], item[2], item[3], item[4],

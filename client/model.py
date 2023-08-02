@@ -650,9 +650,7 @@ class Request(Model):
         self.state = state
         self.hreq_at = hreq_at
         self.dres_at = dres_at
-        if not attempts:
-            attempts = {}
-        self.attempts = attempts
+        self.attempts = attempts if attempts != None else {}
         self._attempt_no = 0
         self._late = False
 
@@ -754,12 +752,14 @@ class Attempt(Model):
         rres_at: Resource reservation response timestamp (intermediate step).
 
         dres_at: Data exchange response timestamp (end of operation).
+
+        responses: Dict of attempt Responses (keys are responding hosts IPs).
     '''
 
     def __init__(self, req_id, attempt_no: int, host: str = None,
                  state: int = None, hreq_at: float = None,
                  hres_at: float = None, rres_at: float = None,
-                 dres_at: float = None):
+                 dres_at: float = None, responses: dict = None):
         self.req_id = req_id
         self.attempt_no = attempt_no
         self.host = host
@@ -768,6 +768,19 @@ class Attempt(Model):
         self.hres_at = hres_at
         self.rres_at = rres_at
         self.dres_at = dres_at
+        self.responses = responses if responses != None else {}
+
+    def as_dict(self, flat: bool = False):
+        d = super().as_dict(flat)
+        if not flat:
+            for host, response in self.responses.items():
+                d['responses'][host] = response.as_dict()
+        else:
+            del d['responses']
+            for host, response in self.responses.items():
+                d.update(response.as_dict(flat,
+                                          _prefix='responses_'+str(host)))
+        return d
 
 
 class Response(Model):
@@ -799,6 +812,4 @@ class Response(Model):
         self.cpu = cpu
         self.ram = ram
         self.disk = disk
-        if not timestamp:
-            timestamp = time()
-        self.timestamp = timestamp
+        self.timestamp = timestamp if timestamp else time()

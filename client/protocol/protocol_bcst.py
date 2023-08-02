@@ -43,15 +43,13 @@ from simulator import (get_resources, check_resources, reserve_resources,
 from model import Request, Attempt, Response
 from network import MY_IFACE, MY_IP, BROADCAST_IP
 from common import IS_RESOURCE
+from api import add_request
 from settings import *
 from consts import *
 
 
 # dict of requests received by provider (keys are (src IP, request ID))
 _requests = {}
-
-# dict of responses received by consumer (keys are request IDs)
-_responses = {}
 
 
 class _Request(Request):
@@ -246,11 +244,11 @@ class MyProtocolAM(AnsweringMachine):
                 and requests[req_id].state != DRES
                 # or already failed
                 and requests[req_id].state != FAIL):
-            _responses.setdefault(req_id, [])
-            _responses[req_id].append(Response(req_id, my_proto.attempt_no,
-                                               ip_src, my_proto.cpu_offer,
-                                               my_proto.ram_offer,
-                                               my_proto.disk_offer))
+
+            att_no = my_proto.attempt_no
+            requests[req_id].attempts[att_no].responses[ip_src] = Response(
+                req_id, att_no, ip_src, my_proto.cpu_offer, my_proto.ram_offer, 
+                my_proto.disk_offer)
             return
 
         # provider receives resource reservation request
@@ -619,10 +617,17 @@ def _save(req: Request):
     req.insert()
     for attempt in req.attempts.values():
         attempt.insert()
-    if req.id in _responses:
-        for response in _responses[req.id]:
+        for response in attempt.responses.values():
             response.insert()
 
+    #  send request to server (for logging)
+    sent, code = add_request(req)
+    if not sent:
+        print(' *** ERROR in protocol: '
+              'Request info failed to send to server for logging (%d). '
+              'Only saved locally.' % code)
+
+    # save locally
     # if simulation is active (like mininet), create different CSV files for
     # different hosts (add IP address to file name)
     _suffix = '.' + MY_IP

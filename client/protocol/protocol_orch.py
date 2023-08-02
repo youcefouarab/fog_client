@@ -41,6 +41,7 @@ from simulator import (check_resources, reserve_resources, free_resources,
                        execute)
 from model import Request, Attempt
 from network import MY_IFACE, MY_IP
+from api import add_request
 from settings import *
 from consts import *
 
@@ -590,6 +591,14 @@ def _save(req: Request):
     for attempt in req.attempts.values():
         attempt.insert()
 
+    #  send request to server (for logging)
+    sent, code = add_request(req)
+    if not sent:
+        print(' *** ERROR in protocol: '
+              'Request info failed to send to server for logging (%d). '
+              'Only saved locally.' % code)
+
+    # save locally
     # if simulation is active (like mininet), create different CSV files for
     # different hosts (add IP address to file name)
     _suffix = '.' + MY_IP
