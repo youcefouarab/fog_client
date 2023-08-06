@@ -16,8 +16,9 @@
 
     Methods:
     --------
-    send_request(cos_id, data): Send a request to host a network application 
-    of Class of Service (CoS) identified by cos_id, with data as input.
+    send_request(cos_id, data): Send a request to the orchestrator to find 
+    a host for a network application of Class of Service (CoS) identified by 
+    cos_id, with data as input.
 '''
 
 
@@ -29,8 +30,6 @@
 from os import getenv
 from threading import Thread, Event
 from time import time
-from string import ascii_letters, digits
-from random import choice
 from logging import info
 
 from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
@@ -39,9 +38,9 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 
 from simulator import (check_resources, reserve_resources, free_resources,
                        execute)
-from model import Request, Attempt
+from model import Request
 from network import MY_IFACE, MY_IP
-from api import add_request
+from common import IS_RESOURCE
 from settings import *
 from consts import *
 
@@ -49,28 +48,18 @@ from consts import *
 # decoy controller/orchestrator
 ORCH_MAC = getenv('CONTROLLER_DECOY_MAC', None)
 if ORCH_MAC == None:
-    print(' *** ERROR in protocol: '
+    print(' *** ERROR in protocol_orch: '
           'CONTROLLER:DECOY_MAC parameter missing from received configuration.')
     exit()
 
 ORCH_IP = getenv('CONTROLLER_DECOY_IP', None)
 if ORCH_IP == None:
-    print(' *** ERROR in protocol: '
+    print(' *** ERROR in protocol_orch: '
           'CONTROLLER:DECOY_IP parameter missing from received configuration.')
     exit()
 
-# dict of requests received by provider (keys are (src IP, request ID))
-_requests = {}
-
 # dict of data exchange events (keys are (src IP, request ID))
 _events = {}
-
-
-class _Request(Request):
-    def __init__(self, id):
-        super().__init__(id, None, None)
-        self._thread = None
-        self._freed = True
 
 
 class MyProtocol(Packet):
@@ -126,26 +115,12 @@ class MyProtocol(Packet):
         state == HRES (2).
     '''
 
-    _states = {
-        HREQ: 'host request (HREQ)',
-        HRES: 'host response (HRES)',
-        RREQ: 'resource reservation request (RREQ)',
-        RRES: 'resource reservation response (RRES)',
-        RACK: 'resource reservation acknowledgement (RACK)',
-        RCAN: 'resource reservation cancellation (RCAN)',
-        DREQ: 'data exchange request (DREQ)',
-        DRES: 'data exchange response (DRES)',
-        DACK: 'data exchange acknowledgement (DACK)',
-        DCAN: 'data exchange cancellation (DCAN)',
-        DWAIT: 'data exchange wait (DWAIT)',
-    }
-
-    name = 'MyProtocol'
+    name = PROTO_NAME
     fields_desc = [
-        ByteEnumField('state', HREQ, _states),
+        ByteEnumField('state', HREQ, proto_states),
         StrLenField('req_id', '', lambda _: REQ_ID_LEN),
         IntField('attempt_no', 1),
-        ConditionalField(IntEnumField('cos_id', 0, cos_names),
+        ConditionalField(IntEnumField('cos_id', 1, cos_names),
                          lambda pkt: pkt.state == HREQ or pkt.state == RREQ),
         ConditionalField(StrField('data', ''),
                          lambda pkt: pkt.state == DREQ or pkt.state == DRES),
@@ -174,11 +149,7 @@ class MyProtocol(Packet):
             return super().show()
 
     def hashret(self):
-        _suffix = b''
-        # if (self.state == RREQ or self.state == RRES or self.state == DACK
-        #        or self.state == DCAN):
-        #    _suffix = self.src_ip
-        return self.req_id + _suffix
+        return self.req_id
 
     def answers(self, other):
         if (isinstance(other, MyProtocol)
@@ -234,7 +205,7 @@ class MyProtocolAM(AnsweringMachine):
                 and req[IP].src != MY_IP
                 and req[IP].src != DEFAULT_IP
                 # and must have an ID
-                and req[MyProtocol].req_id != b'')
+                and req[MyProtocol].req_id)
 
     def make_reply(self, req):
         my_proto = req[MyProtocol]
@@ -242,70 +213,78 @@ class MyProtocolAM(AnsweringMachine):
         req_id = my_proto.req_id.decode()
         _req_id = (ip_src, req_id)
         state = my_proto.state
+        att_no = my_proto.attempt_no
+
+        _req = requests_.get(_req_id, None)
+        my_req = requests.get(req_id, None)
+        if my_req:
+            att = my_req.attempts.get(att_no, None)
 
         # provider receives resource reservation request
-        if state == RREQ and ip_src == ORCH_IP:
-            _req_id = (my_proto.src_ip.decode().strip(), req_id)
+        if state == RREQ and ip_src == ORCH_IP and IS_RESOURCE:
+            ip_src = my_proto.src_ip.decode().strip()
+            _req_id = (ip_src, req_id)
+            _req = requests_.get(_req_id, None)
             # if new request
-            if _req_id not in _requests:
-                _requests[_req_id] = _Request(req_id)
-                _requests[_req_id].state = RREQ
-                _requests[_req_id].cos = cos_dict[my_proto.cos_id]
+            if not _req:
+                _req = Request_(req_id)
+                _req.state = RREQ
+                _req.cos = cos_dict[my_proto.cos_id]
+                requests_[_req_id] = _req
             # host request must not have already been reserved
-            if (_requests[_req_id].state == RREQ
-                    or _requests[_req_id].state == RCAN):
+            if _req.state == RREQ or _req.state == RCAN:
                 info('Recv resource reservation request from orchestrator')
                 my_proto.show()
                 info('Reserving resources')
                 # if resources are actually reserved
-                if reserve_resources(_requests[_req_id]):
-                    _requests[_req_id].state = RRES
-                    _requests[_req_id]._freed = False
+                if reserve_resources(_req):
+                    _req.state = RRES
+                    _req._freed = False
                 # else they became no longer sufficient in time between
                 # HREQ and RREQ
                 else:
-                    info('Resources are not sufficient (will exceed limit)')
-                    info('Send resource reservation cancellation to '
+                    info('Resources are not sufficient (will exceed limit)\n'
+                         'Send resource reservation cancellation to '
                          'orchestrator')
-                    _requests[_req_id].state = RREQ
+                    _req.state = RREQ
                     my_proto.state = RCAN
                     return (IP(dst=ORCH_IP) / my_proto)
             # if resources reserved
-            if _requests[_req_id].state == RRES:
+            if _req.state == RRES:
                 Thread(target=self._respond_resources,
-                       args=(my_proto, _req_id)).start()
+                       args=(my_proto, _req_id, _req)).start()
             return
 
         # provider receives data exchange request
-        if state == DREQ and _req_id in _requests:
+        if state == DREQ and _req:
             if _req_id in _events:
                 _events[_req_id].set()
             # already executed
-            if _requests[_req_id].state == DRES:
+            if _req.state == DRES:
                 my_proto.state = DRES
-                my_proto.data = _requests[_req_id].result
+                my_proto.data = _req.result
                 return IP(dst=ip_src) / my_proto
             # still executing
-            if (_requests[_req_id].state == DREQ
-                    and _requests[_req_id]._thread != None):
+            if _req.state == DREQ and _req._thread != None:
                 my_proto.state = DWAIT
                 return IP(dst=ip_src) / my_proto
             info('Recv data exchange request from %s' % ip_src)
             my_proto.show()
             # if request was cancelled before
-            if _requests[_req_id].state == RCAN:
+            if _req.state == RCAN:
                 info('This request arrived late')
                 # if resources are still available
-                if check_resources(_requests[_req_id], quiet=True):
-                    info('but resources are still available')
-                    info('Reserving resources')
-                    reserve_resources(_requests[_req_id])
-                    _requests[_req_id].state = RRES
-                    _requests[_req_id]._freed = False
+                if check_resources(_req, quiet=True):
+                    info('but resources are still available\n'
+                         'Reserving resources')
+                    reserve_resources(_req)
+                    _req.state = RRES
+                    _req._freed = False
                 else:
-                    info('and resources are no longer sufficient (will exceed limit)')
-                    info('Send data exchange cancellation to %s' % ip_src)
-                    _requests[_req_id].state = DCAN
+                    info('and resources are no longer sufficient '
+                         '(will exceed limit)\n'
+                         'Send data exchange cancellation to %s' % ip_src)
+                    _req.state = DCAN
                     my_proto.state = DCAN
                     my_proto.src_mac = req[Ether].src
                     my_proto.src_ip = ip_src.ljust(IP_LEN, ' ')
@@ -313,25 +292,27 @@ class MyProtocolAM(AnsweringMachine):
                     my_proto.host_ip = req[IP].dst.ljust(IP_LEN, ' ')
                     return IP(dst=ip_src) / my_proto
             # new execution
-            if _requests[_req_id].state == RRES:
-                _requests[_req_id].state = DREQ
-                _requests[_req_id]._thread = Thread(
+            if _req.state == RRES:
+                _req.state = DREQ
+                th = Thread(
                     target=self._respond_data,
-                    args=(my_proto, ip_src, _req_id))
-                _requests[_req_id]._thread.start()
+                    args=(my_proto, ip_src, _req_id, _req))
+                _req._thread = th
+                th.start()
             return
 
         # consumer receives late data exchange response
-        if state == DRES and req_id in requests:
+        if state == DRES and my_req:
             # if no other response was already accepted
-            if not requests[req_id].dres_at:
+            if not my_req.dres_at:
                 dres_at = time()
-                requests[req_id].dres_at = dres_at
-                requests[req_id].state = DRES
-                requests[req_id].host = ip_src
-                requests[req_id].result = my_proto.data
-                requests[req_id].attempts[my_proto.attempt_no].state = DRES
-                requests[req_id].attempts[my_proto.attempt_no].dres_at = dres_at
+                my_req.dres_at = dres_at
+                my_req.state = DRES
+                my_req.host = ip_src
+                my_req.result = my_proto.data
+                if att:
+                    att.state = DRES
+                    att.dres_at = dres_at
                 info('Recv data exchange response from %s' % ip_src)
                 my_proto.show()
                 if req_id in _events:
@@ -347,7 +328,7 @@ class MyProtocolAM(AnsweringMachine):
                 my_proto.show()
                 info('but result already received')
                 #  if different host, cancel
-                if ip_src != requests[req_id].host:
+                if ip_src != my_req.host:
                     info('Send data exchange cancellation to orchestrator')
                     my_proto.state = DCAN
                     my_proto.host_mac = req[Ether].src
@@ -364,37 +345,39 @@ class MyProtocolAM(AnsweringMachine):
         # provider receives data exchange acknowledgement
         if state == DACK and ip_src == ORCH_IP:
             _req_id = (my_proto.src_ip.decode().strip(), req_id)
-            if _req_id in _requests and _requests[_req_id].state == DRES:
+            if _req_id in requests_ and requests_[_req_id].state == DRES:
                 info('Recv data exchange acknowledgement from orchestrator')
                 my_proto.show()
                 if _req_id in _events:
                     _events[_req_id].set()
                 # only free resources if still reserved
-                if not _requests[_req_id]._freed:
+                if not requests_[_req_id]._freed:
                     info('Freeing resources')
-                    free_resources(_requests[_req_id])
-                    _requests[_req_id]._freed = True
+                    free_resources(requests_[_req_id])
+                    requests_[_req_id]._freed = True
             return
 
         # provider receives data exchange cancellation
         if state == DCAN and ip_src == ORCH_IP:
-            _req_id = (my_proto.src_ip.decode().strip(), req_id)
-            if _req_id in _requests and _requests[_req_id].state == DRES:
+            ip_src = my_proto.src_ip.decode().strip()
+            _req_id = (ip_src, req_id)
+            _req = requests_.get(_req_id, None)
+            if _req and _req.state == DRES:
                 info('Recv data exchange cancellation from orchestrator')
                 my_proto.show()
                 if _req_id in _events:
                     _events[_req_id].set()
                 # only free resources if still reserved
-                if not _requests[_req_id]._freed:
+                if not _req._freed:
                     info('Freeing resources')
-                    free_resources(_requests[_req_id])
-                    _requests[_req_id]._freed = True
+                    free_resources(_req)
+                    _req._freed = True
 
-    def _respond_resources(self, my_proto, _req_id):
+    def _respond_resources(self, my_proto, _req_id, _req):
         my_proto.state = RRES
         retries = PROTO_RETRIES
         rack = None
-        while not rack and retries and _requests[_req_id].state == RRES:
+        while not rack and retries and _req.state == RRES:
             info('Send resource reservation response to orchestrator')
             retries -= 1
             rack = sr1(IP(dst=ORCH_IP) / my_proto,
@@ -404,73 +387,62 @@ class MyProtocolAM(AnsweringMachine):
                 info('Recv resource reservation cancellation from orchestrator')
                 rack[MyProtocol].show()
                 # only free resources if still reserved
-                if _requests[_req_id].state == RRES:
-                    _requests[_req_id].state = RCAN
+                if _req.state == RRES:
+                    _req.state = RCAN
                     info('Freeing resources')
-                    free_resources(_requests[_req_id])
+                    free_resources(_req)
             else:
                 info('Recv resource reservation acknowledgement from '
                      'orchestrator')
                 rack[MyProtocol].show()
-                _events[_req_id] = Event()
-                _events[_req_id].wait(PROTO_RETRIES * PROTO_TIMEOUT)
-                if not _events[_req_id].is_set():
-                    info('Waiting for data exchange request timed out')
-                    info('Freeing resources')
-                    free_resources(_requests[_req_id])
-                    _requests[_req_id].state = RCAN
+                ev = Event()
+                _events[_req_id] = ev
+                ev.wait(PROTO_RETRIES * PROTO_TIMEOUT)
+                if not ev.is_set():
+                    info('Waiting for data exchange request timed out\n'
+                         'Freeing resources')
+                    free_resources(_req)
+                    _req.state = RCAN
                     # info('Send resource reservation cancellation to '
-                    #        'orchestrator')
+                    #      'orchestrator')
                     # my_proto.state = RCAN
                     # send(IP(dst=ORCH_IP) / my_proto, verbose=0, iface=IFACE)
             return
         # only free resources if still reserved
-        elif _requests[_req_id].state == RRES:
-            _requests[_req_id].state = RCAN
-            info('Waiting for resource reservation acknowledgement timed out')
-            info('Freeing resources')
-            free_resources(_requests[_req_id])
+        elif _req.state == RRES:
+            _req.state = RCAN
+            info('Waiting for resource reservation acknowledgement timed out\n'
+                 'Freeing resources')
+            free_resources(_req)
             info('Send resource reservation cancellation to orchestrator')
             my_proto.state = RCAN
             send(IP(dst=ORCH_IP) / my_proto, verbose=0, iface=MY_IFACE)
 
-    def _respond_data(self, my_proto, ip_src, _req_id):
+    def _respond_data(self, my_proto, ip_src, _req_id, _req):
         info('Executing')
         res = execute(my_proto.data)
         # save result locally
-        _requests[_req_id].result = res
-        _requests[_req_id].state = DRES
+        _req.result = res
+        _req.state = DRES
         my_proto.state = DRES
         my_proto.data = res
         retries = PROTO_RETRIES
-        _events[_req_id] = Event()
+        ev = Event()
+        _events[_req_id] = ev
         while retries:
             info('Send data exchange response to %s' % ip_src)
             retries -= 1
             send(IP(dst=ip_src) / my_proto, verbose=0, iface=MY_IFACE)
-            _events[_req_id].wait(PROTO_TIMEOUT)
-            if _events[_req_id].is_set():
+            ev.wait(PROTO_TIMEOUT)
+            if ev.is_set():
                 return
-        if not _events[_req_id].is_set():
+        if not ev.is_set():
             info('Waiting for data exchange acknowledgement timed out')
             # only free resources if still reserved
-            if not _requests[_req_id]._freed:
+            if not _req._freed:
                 info('Freeing resources')
-                free_resources(_requests[_req_id])
-                _requests[_req_id]._freed = True
-
-
-# start the answering machine
-AM = MyProtocolAM(verbose=0)
-AM(bg=True)
-
-
-def _generate_request_id():
-    id = '_'
-    while id in requests:
-        id = ''.join(
-            choice(ascii_letters + digits) for _ in range(REQ_ID_LEN))
-    return id
+                free_resources(_req)
+                _req._freed = True
 
 
 def send_request(cos_id: int, data: bytes):
@@ -482,7 +454,7 @@ def send_request(cos_id: int, data: bytes):
         Returns received result if executed, None if not.
     '''
 
-    req_id = _generate_request_id()
+    req_id = gen_req_id()
     req = Request(req_id, cos_dict[cos_id], data)
     requests[req_id] = req
 
@@ -566,7 +538,7 @@ def send_request(cos_id: int, data: bytes):
                                            host_ip=req.host.ljust(IP_LEN, ' '),
                                            host_mac=host_mac),
                               verbose=0, iface=MY_IFACE)
-                    Thread(target=_save, args=(req,)).start()
+                    Thread(target=save_req, args=(req,)).start()
                     return req.result
                 elif not req.dres_at:
                     info('No data')
@@ -580,27 +552,7 @@ def send_request(cos_id: int, data: bytes):
     if not req.dres_at:
         req.state = FAIL
     info(req)
-    Thread(target=_save, args=(req,)).start()
+    Thread(target=save_req, args=(req,)).start()
     # if late dres
     if req.dres_at:
         return req.result
-
-
-def _save(req: Request):
-    req.insert()
-    for attempt in req.attempts.values():
-        attempt.insert()
-
-    # save locally
-    # if simulation is active (like mininet), create different CSV files for
-    # different hosts (add IP address to file name)
-    _suffix = '.' + MY_IP
-    Request.as_csv(_suffix=_suffix)
-    Attempt.as_csv(_suffix=_suffix)
-
-    #  send request to server (for logging)
-    sent, code = add_request(req)
-    if not sent:
-        print(' *** ERROR in protocol: '
-              'Request info failed to send to server for logging (%s). '
-              'Only saved locally.' % str(code))

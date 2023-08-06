@@ -6,15 +6,16 @@ from socket import socket, AF_INET, AF_PACKET, SOCK_DGRAM, gethostname
 from re import findall
 from uuid import getnode
 
+from meta import SingletonMeta
 from model import Node, NodeType, Interface
 from consts import MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS
 
 
-class Manager:
+class Manager(metaclass=SingletonMeta):
     '''
-        Class for managing multiple aspects of the client component, such as 
-        building the Node and Interface models, managing the connection to the 
-        orchestrator, and sending node and/or network specs periodically 
+        Singleton class for managing multiple aspects of the client component, 
+        such as building the Node and Interface models, managing the connection 
+        to the orchestrator, and sending node and/or network specs periodically 
         (depending on the mode).
 
         Attributes:
@@ -81,8 +82,7 @@ class Manager:
             else:
                 sleep(1)
         if self.verbose:
-            print()
-            print(' *** Done')
+            print('\n *** Done')
 
         if not self.node:
             self._build(**kwargs)
@@ -91,7 +91,8 @@ class Manager:
             code = None
             while not self._connected:
                 if self.verbose:
-                    print((' *** Connecting (%s)' % str(code)).ljust(40), end='\r')
+                    print((' *** Connecting (%s)' % str(code)).ljust(40),
+                          end='\r')
                 added, code = add_node(self.node)
                 if code == HTTP_EXISTS:
                     print(' *** ERROR: Already connected')
@@ -100,8 +101,7 @@ class Manager:
                     if added:
                         self._connected = True
                         if self.verbose:
-                            print()
-                            print(' *** Done')
+                            print('\n *** Done')
                         print(' *** Node added successfully')
                         Thread(target=self._udp_connect).start()
                         Thread(target=self._update_specs).start()
@@ -127,15 +127,15 @@ class Manager:
             print(' *** Disconnecting')
         self._connected = False
         if self._mode != MODE_SWITCH:
-            deleted = delete_node(self.node)
-            if deleted[0]:
+            deleted, code = delete_node(self.node)
+            if deleted:
                 if self.verbose:
-                    print(' *** Done')
-                    print(' *** Node deleted successfully')
+                    print(' *** Done\n'
+                          ' *** Node deleted successfully')
                 return True
             else:
                 if self.verbose:
-                    print(' *** Node not deleted (%s)' % str(deleted[1]))
+                    print(' *** Node not deleted (%s)' % str(code))
                 return False
 
     def _get_id(self):

@@ -1,8 +1,20 @@
 '''
     This module allows to import the correct protocol among multiple from 
-    a single access point based on the mode (BROADCAST or ORCHESTRATOR).
+    a single access point based on the mode indicated by the server's 
+    PROTOCOL:SEND_TO config parameter (BROADCAST or ORCHESTRATOR).
 
     The protocol's responder is automatically started upon import.
+
+    Classes:
+    --------
+    MyProtocol: Class deriving from Scapy's Packet class to define the 
+    communication protocol between hosts/orchestrator, including the packet 
+    header's fields, as well as ways to detect if a packet is an answer to 
+    another.
+
+    MyProtocolAM: Class deriving from Scapy's AnsweringMachine class to define 
+    the protocol's responder, which takes decisions and builds and sends 
+    replies to received packets based on the protocol's state.
 
     Methods:
     --------
@@ -28,6 +40,12 @@ from consts import SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR
 
 
 if PROTO_SEND_TO == SEND_TO_BROADCAST:
-    from protocol_bcst import send_request
+    from protocol_bcst import send_request, MyProtocol, MyProtocolAM
 elif PROTO_SEND_TO == SEND_TO_ORCHESTRATOR:
-    from protocol_orch import send_request
+    from protocol_orch import send_request, MyProtocol, MyProtocolAM
+
+
+if PROTO_SEND_TO in (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR):
+    # start the answering machine
+    AM = MyProtocolAM(verbose=0)
+    AM(bg=True)

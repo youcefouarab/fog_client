@@ -23,10 +23,10 @@ NANO = 10e-9
 
 class Monitor(metaclass=SingletonMeta):
     '''
-        Class for monitoring the state of resources of the node it's running on 
-        (number of CPUs, total and free memory size, total and free disk size, 
-        as well as total capacity, free egress and ingress bandwidth, Tx and Rx 
-        packets, and delay on each network interface).
+        Singleton class for monitoring the state of resources of the node it's 
+        running on (total and free CPUs, total and free memory size, total and 
+        free disk size, as well as total capacity, free egress and ingress 
+        bandwidth, Tx and Rx packets, and delay on each network interface).
 
         If node is regular (physical, VM, etc.), the resources are gotten using
         the 'psutil' library. If it is a container (if the environment variable 

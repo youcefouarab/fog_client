@@ -24,8 +24,7 @@ def _send_request(send_request, cos_names, cos_id: int, data: bytes):
 
 
 def netapp_cli(mode: str, send_request, cos_names: dict):
-    print()
-    print('Choose a Class of Service and click ENTER to send a request')
+    print('\nChoose a Class of Service and click ENTER to send a request')
     if mode == MODE_RESOURCE:
         print('Or wait to receive requests')
     _list_cos(cos_names)

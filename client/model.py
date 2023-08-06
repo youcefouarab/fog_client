@@ -1,8 +1,8 @@
 '''
     Model classes used to represent various networking concepts, such as nodes, 
-    their types and their specs, interfaces and their specs, links and their 
-    specs, Classes of Service (CoS) and their requirements, application hosting 
-    requests, their attempts, and their responses.
+    their types and their specs, interfaces and their specs, Classes of Service 
+    (CoS) and their requirements, application hosting requests, their attempts, 
+    and their responses.
 
     Classes:
     --------
@@ -15,10 +15,6 @@
     NodeSpecs: Network node specs at given timestamp.
 
     Node: Network node.
-
-    LinkSpecs: Network link specs at given timestamp.
-
-    Link: Network link.
 
     CoSSpecs: Set of minimum specs required to host network applications 
     belonging to Class of Service.
@@ -376,8 +372,8 @@ class Node(Model):
         self.interfaces = interfaces if interfaces else {}
         self.main_interface = None  # string (name)
         self.specs = specs if specs else NodeSpecs()
-        # float (gross value; to get percentage, multiply by 100)
-        self.threshold = 1
+        self.threshold = 1  # float (gross value; to get percentage, multiply
+        # by 100)
 
     def as_dict(self, flat: bool = False):
         d = super().as_dict(flat)
