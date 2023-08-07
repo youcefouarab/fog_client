@@ -1,4 +1,4 @@
-from os import environ, getenv
+from os import environ, getenv, get_terminal_size
 from threading import Thread
 from time import sleep
 from psutil import net_if_addrs
@@ -74,7 +74,7 @@ class Manager(metaclass=SingletonMeta):
         while conf == None:
             if self.verbose:
                 print(' *** Getting configuration', end='\r')
-            conf, _ = get_config()
+            conf, *_ = get_config()
             if conf:
                 for param, value in conf.items():
                     if value != None:
@@ -88,12 +88,13 @@ class Manager(metaclass=SingletonMeta):
             self._build(**kwargs)
 
         if mode == MODE_CLIENT or mode == MODE_RESOURCE:
-            code = None
+            code = [None, None]
             while not self._connected:
                 if self.verbose:
-                    print((' *** Connecting (%s)' % str(code)).ljust(40),
+                    just = get_terminal_size()[0]
+                    print((' *** Connecting %s' % str(code)).ljust(just),
                           end='\r')
-                added, code = add_node(self.node)
+                added, *code = add_node(self.node)
                 if code == HTTP_EXISTS:
                     print(' *** ERROR: Already connected')
                     exit()
@@ -127,7 +128,7 @@ class Manager(metaclass=SingletonMeta):
             print(' *** Disconnecting')
         self._connected = False
         if self._mode != MODE_SWITCH:
-            deleted, code = delete_node(self.node)
+            deleted, *code = delete_node(self.node)
             if deleted:
                 if self.verbose:
                     print(' *** Done\n'
@@ -135,7 +136,7 @@ class Manager(metaclass=SingletonMeta):
                 return True
             else:
                 if self.verbose:
-                    print(' *** Node not deleted (%s)' % str(code))
+                    print(' *** Node not deleted %s' % str(code))
                 return False
 
     def _get_id(self):
@@ -251,19 +252,22 @@ class Manager(metaclass=SingletonMeta):
                 iface.set_tx_packets(M.get('tx_packets', 0))
                 iface.set_rx_packets(M.get('rx_packets', 0))
 
-            updated = update_node_specs(self.node)
-            if updated[0]:
+            updated, *code = update_node_specs(self.node)
+            if updated:
                 if self.verbose:
                     if self._mode == MODE_RESOURCE:
-                        print(' *** Node specs are being sent'.ljust(40),
+                        just = get_terminal_size()[0]
+                        print(' *** Node specs are being sent'.ljust(just),
                               end='\r')
                     else:
-                        print(' *** Network specs are being sent'.ljust(40),
+                        just = get_terminal_size()[0]
+                        print(' *** Network specs are being sent'.ljust(just),
                               end='\r')
             else:
                 if self.verbose:
-                    print((' *** Specs are not being sent (%s)'
-                           % str(updated[1])).ljust(40), end='\r')
+                    just = get_terminal_size()[0]
+                    print((' *** Specs are not being sent %s'
+                           % str(code)).ljust(just), end='\r')
 
                 # if connection to controller was lost but is back
                 # re-add node in case it was deleted

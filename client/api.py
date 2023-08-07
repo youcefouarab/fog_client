@@ -112,7 +112,9 @@ def _ryu_request(method: str, path: str, data: dict = {}):
         if method == 'GET':
             r = get(url, headers=RYU_HEADERS, json=data)
             code = r.status_code
-            return (r.json(), code) if code == HTTP_SUCCESS else (None, code)
+            msg = r.text
+            return (r.json(), code, msg) if (
+                code == HTTP_SUCCESS) else (None, code, msg)
         elif method == 'POST':
             r = post(url, headers=RYU_HEADERS, json=data)
         elif method == 'PUT':
@@ -120,10 +122,11 @@ def _ryu_request(method: str, path: str, data: dict = {}):
         elif method == 'DELETE':
             r = delete(url, headers=RYU_HEADERS, json=data)
         code = r.status_code
-        return ((code == HTTP_SUCCESS or code == HTTP_EXISTS), code)
+        msg = r.text
+        return ((code == HTTP_SUCCESS or code == HTTP_EXISTS), code, msg)
 
     except (RequestException, ValueError):
-        return None, None
+        return None, None, None
 
 
 def _ryu_get_config():
