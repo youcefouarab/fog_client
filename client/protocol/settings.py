@@ -123,8 +123,8 @@ def save_req(req: Request):
     Response.as_csv(_suffix=_suffix)
 
     #  send request to server (for logging)
-    sent, code = add_request(req)
+    sent, *code = add_request(req)
     if not sent:
         print(' *** ERROR in protocol.settings: '
-              'Request info failed to send to server for logging (%s). '
+              'Request info failed to send to server for logging %s. '
               'Only saved locally.' % str(code))
