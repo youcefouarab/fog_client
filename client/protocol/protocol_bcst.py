@@ -219,7 +219,7 @@ class MyProtocolAM(AnsweringMachine):
         # consumer receives host responses (save in database)
         # if request has not been already answered or failed
         if state == HRES and my_req and my_req.state not in (DRES, FAIL):
-            my_req.attempts[att_no].responses[ip_src] = Response(
+            att.responses[ip_src] = Response(
                 req_id, att_no, ip_src, my_proto.cpu_offer, my_proto.ram_offer,
                 my_proto.disk_offer)
             return
@@ -254,7 +254,7 @@ class MyProtocolAM(AnsweringMachine):
 
         # consumer receives late resource reservation response
         # from a previous host
-        if state == RRES and my_req and ip_src != req.host:
+        if state == RRES and my_req and ip_src != my_req.host:
             info('Recv late resource reservation response from %s' % ip_src)
             my_proto.show()
             # cancel with previous host
