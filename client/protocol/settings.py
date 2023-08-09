@@ -23,7 +23,7 @@ if _stp_enabled not in ('TRUE', 'FALSE'):
                     'received configuration. '
                     'Defaulting to False')
     file.warning('NETWORK:STP_ENABLED parameter (%s) invalid or missing '
-                 'from received configuration', str(_stp_enabled))
+                 'from received configuration', _stp_enabled)
     _stp_enabled = 'FALSE'
 STP_ENABLED = _stp_enabled == 'TRUE'
 
