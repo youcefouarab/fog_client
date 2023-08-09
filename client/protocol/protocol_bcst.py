@@ -29,7 +29,6 @@
 
 from threading import Thread
 from time import time
-from logging import info
 
 from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
                        StrField, IntField, IEEEDoubleField, ConditionalField,
@@ -39,6 +38,7 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
 from simulator import (get_resources, check_resources, reserve_resources,
                        free_resources, execute)
 from model import Request, Response
+from logger import console
 from network import MY_IFACE, MY_IP, BROADCAST_IP
 from common import IS_RESOURCE
 from settings import *
@@ -195,16 +195,16 @@ class MyProtocolAM(AnsweringMachine):
                 requests_[_req_id] = _req
             # if not old request that was cancelled
             if _req.state in (HREQ, HRES):
-                info('Recv host request from %s' % ip_src)
+                console.info('Recv host request from %s', ip_src)
                 my_proto.show()
                 # set cos (for new requests and in case CoS was changed for
                 # old request)
                 _req.cos = cos_dict[my_proto.cos_id]
-                info('Checking resources')
+                console.info('Checking resources')
                 cpu, ram, disk = get_resources()
                 check = check_resources(_req)
                 if check:
-                    info('Send host response to %s' % ip_src)
+                    console.info('Send host response to %s', ip_src)
                     _req.state = HRES
                     my_proto.state = HRES
                     my_proto.cpu_offer = cpu
@@ -212,7 +212,7 @@ class MyProtocolAM(AnsweringMachine):
                     my_proto.disk_offer = disk
                     return IP(dst=ip_src) / my_proto
                 else:
-                    info('Insufficient (will exceed limit)')
+                    console.info('Insufficient (will exceed limit)')
                     _req.state = HREQ
             return
 
@@ -229,9 +229,10 @@ class MyProtocolAM(AnsweringMachine):
             # host request must have already been answered positively
             # but not yet reserved
             if _req.state == HRES:
-                info('Recv resource reservation request from %s' % ip_src)
+                console.info('Recv resource reservation request from %s',
+                             ip_src)
                 my_proto.show()
-                info('Reserving resources')
+                console.info('Reserving resources')
                 # if resources are actually reserved
                 if reserve_resources(_req):
                     _req.state = RRES
@@ -239,10 +240,10 @@ class MyProtocolAM(AnsweringMachine):
                 # else they became no longer sufficient in time between
                 # HRES and RREQ
                 else:
-                    info('Resources are no longer sufficient '
-                         '(will exceed limit)\n'
-                         'Send resource reservation cancellation to %s'
-                         % ip_src)
+                    console.info('Resources are no longer sufficient '
+                                 '(will exceed limit)')
+                    console.info('Send resource reservation cancellation '
+                                 'to %s', ip_src)
                     _req.state = HREQ
                     my_proto.state = RCAN
                     return IP(dst=ip_src) / my_proto
@@ -255,10 +256,12 @@ class MyProtocolAM(AnsweringMachine):
         # consumer receives late resource reservation response
         # from a previous host
         if state == RRES and my_req and ip_src != my_req.host:
-            info('Recv late resource reservation response from %s' % ip_src)
+            console.info('Recv late resource reservation response from %s',
+                         ip_src)
             my_proto.show()
             # cancel with previous host
-            info('Send resource reservation cancellation to %s' % ip_src)
+            console.info('Send resource reservation cancellation to %s',
+                         ip_src)
             my_proto.state = RCAN
             return IP(dst=ip_src) / my_proto
 
@@ -273,22 +276,24 @@ class MyProtocolAM(AnsweringMachine):
             if _req.state == RRES and _req._thread != None:
                 my_proto.state = DWAIT
                 return IP(dst=ip_src) / my_proto
-            info('Recv data exchange request from %s' % ip_src)
+            console.info('Recv data exchange request from %s', ip_src)
             my_proto.show()
             # if request was cancelled before
             if _req.state == HREQ:
-                info('This request arrived late')
                 # if resources are still available
                 if check_resources(_req, quiet=True):
-                    info('but resources are still available\n'
-                         'Reserving resources')
+                    console.info('This request arrived late, '
+                                 'but resources are still available')
+                    console.info('Reserving resources')
                     reserve_resources(_req)
                     _req.state = RRES
                     _req._freed = False
                 else:
-                    info('and resources are no longer sufficient '
-                         '(will exceed limit)\n'
-                         'Send data exchange cancellation to %s' % ip_src)
+                    console.info('This request arrived late, '
+                                 'and resources are no longer sufficient '
+                                 '(will exceed limit)')
+                    console.info('Send data exchange cancellation to %s',
+                                 ip_src)
                     _req.state = HREQ
                     my_proto.state = DCAN
                     return IP(dst=ip_src) / my_proto
@@ -314,34 +319,38 @@ class MyProtocolAM(AnsweringMachine):
                     if att:
                         att.state = DRES
                         att.dres_at = dres_at
-                    info('Recv late data exchange response from %s' % ip_src)
+                    console.info('Recv late data exchange response from %s',
+                                 ip_src)
                     my_proto.show()
-                    info('Send data exchange acknowledgement to %s' % ip_src)
+                    console.info('Send data exchange acknowledgement to %s',
+                                 ip_src)
                     my_proto.state = DACK
                     return IP(dst=ip_src) / my_proto
                 return
             # if response already received
             else:
-                info('Recv late data exchange response from %s' % ip_src)
+                console.info('Recv late data exchange response from %s, '
+                             'but result already received', ip_src)
                 my_proto.show()
-                info('but result already received')
                 #  if different host, cancel
                 if ip_src != my_req.host:
-                    info('Send data exchange cancellation to %s' % ip_src)
+                    console.info('Send data exchange cancellation to %s',
+                                 ip_src)
                     my_proto.state = DCAN
                 # if same host, acknowledge
                 else:
-                    info('Send data exchange acknowledgement to %s' % ip_src)
+                    console.info('Send data exchange acknowledgement to %s',
+                                 ip_src)
                     my_proto.state = DACK
                 return IP(dst=ip_src) / my_proto
 
         # provider receives data exchange acknowledgement
         if state == DACK and _req and _req.state == DRES:
-            info('Recv data exchange acknowledgement from %s' % ip_src)
+            console.info('Recv data exchange acknowledgement from %s', ip_src)
             my_proto.show()
             # only free resources if still reserved
             if not _req._freed:
-                info('Freeing resources')
+                console.info('Freeing resources')
                 free_resources(_req)
                 _req._freed = True
 
@@ -350,28 +359,29 @@ class MyProtocolAM(AnsweringMachine):
         retries = PROTO_RETRIES
         dreq = None
         while not dreq and retries and _req.state == RRES:
-            info('Send resource reservation response to %s' % ip_src)
+            console.info('Send resource reservation response to %s', ip_src)
             retries -= 1
             dreq = sr1(IP(dst=ip_src) / my_proto,
                        timeout=PROTO_TIMEOUT, verbose=0, iface=MY_IFACE)
             if dreq and dreq[MyProtocol].state == RCAN:
-                info('Recv resource reservation cancellation from %s' % ip_src)
+                console.info('Recv resource reservation cancellation from %s',
+                             ip_src)
                 my_proto.show()
                 _req.state = HREQ
-                info('Freeing resources')
+                console.info('Freeing resources')
                 free_resources(_req)
                 return
         # only free resources if still reserved
         if not dreq and _req.state == RRES:
-            info('Waiting for data exchange request timed out')
-            info('Freeing resources')
+            console.info('Waiting for data exchange request timed out')
+            console.info('Freeing resources')
             free_resources(_req)
             _req.state = HREQ
             my_proto.state = RCAN
             send(IP(dst=ip_src) / my_proto, verbose=0, iface=MY_IFACE)
 
     def _respond_data(self, my_proto, ip_src, _req):
-        info('Executing')
+        console.info('Executing')
         res = execute(my_proto.data)
         # save result locally
         _req.result = res
@@ -381,23 +391,23 @@ class MyProtocolAM(AnsweringMachine):
         retries = PROTO_RETRIES
         dack = None
         while not dack and retries:
-            info('Send data exchange response to %s' % ip_src)
+            console.info('Send data exchange response to %s', ip_src)
             retries -= 1
             dack = sr1(IP(dst=ip_src) / my_proto,
                        timeout=PROTO_TIMEOUT, verbose=0, iface=MY_IFACE)
             if dack and dack[MyProtocol].state == DCAN:
-                info('Recv data exchange cancellation from %s' % ip_src)
+                console.info('Recv data exchange cancellation from %s', ip_src)
                 # only free resources if still reserved
                 if not _req._freed:
-                    info('Freeing resources')
+                    console.info('Freeing resources')
                     free_resources(_req)
                     _req._freed = True
                     return
         if not dack:
-            info('Waiting for data exchange acknowledgement timed out')
+            console.info('Waiting for data exchange acknowledgement timed out')
             # only free resources if still reserved
             if not _req._freed:
-                info('Freeing resources')
+                console.info('Freeing resources')
                 free_resources(_req)
                 _req._freed = True
 
@@ -425,8 +435,9 @@ def send_request(cos_id: int, data: bytes):
         attempt.hreq_at = time()
         if not req.hreq_at:
             req.hreq_at = attempt.hreq_at
-        info('Broadcasting host request')
-        info(req)
+        console.info('Broadcasting host request')
+        if PROTO_VERBOSE:
+            print(req)
         hreq_rt -= 1
         # send broadcast and wait for first response
         hres = srp1(Ether(dst=BROADCAST_MAC)
@@ -440,15 +451,17 @@ def send_request(cos_id: int, data: bytes):
             req.state = RREQ
             req.host = hres[IP].src
             attempt.host = req.host
-            info('Recv first host response from %s' % req.host)
+            console.info('Recv first host response from %s', req.host)
             hres[MyProtocol].show()
 
             hreq_rt = PROTO_RETRIES
             rreq_rt = PROTO_RETRIES
             rres = None
             while not rres and rreq_rt and not req.dres_at:
-                info('Send resource reservation request to %s' % req.host)
-                info(req)
+                console.info('Send resource reservation request to %s',
+                             req.host)
+                if PROTO_VERBOSE:
+                    print(req)
                 rreq_rt -= 1
                 # send and wait for response
                 rres = sr1(IP(dst=req.host)
@@ -476,8 +489,8 @@ def send_request(cos_id: int, data: bytes):
                     # if cancelled from provider (maybe resources became no
                     # longer sufficient between hres and rreq)
                     if rres[MyProtocol].state == RCAN:
-                        info('Recv resource reservation cancellation from',
-                             req.host)
+                        console.info('Recv resource reservation cancellation '
+                                     'from', req.host)
                         rres[MyProtocol].show()
                         # re-send hreq
                         attempt.state = RCAN
@@ -485,27 +498,31 @@ def send_request(cos_id: int, data: bytes):
                     attempt.rres_at = time()
                     attempt.state = DREQ
                     req.state = DREQ
-                    info('Recv resource reservation response from %s' % req.host)
+                    console.info('Recv resource reservation response from %s',
+                                 req.host)
                     rres[MyProtocol].show()
 
                     dreq_rt = PROTO_RETRIES
                     dres = None
                     while not dres and dreq_rt and not req.dres_at:
-                        info('Send data exchange request to %s' % req.host)
-                        info(req)
+                        console.info('Send data exchange request to %s',
+                                     req.host)
+                        if PROTO_VERBOSE:
+                            print(req)
                         dreq_rt -= 1
                         # send and wait for response
                         dres = sr1(IP(dst=req.host)
                                    / MyProtocol(state=DREQ, req_id=req_id,
                                                 attempt_no=attempt.attempt_no,
                                                 data=data),
-                                   timeout=PROTO_TIMEOUT, verbose=0, iface=MY_IFACE)
+                                   timeout=PROTO_TIMEOUT, verbose=0,
+                                   iface=MY_IFACE)
                         if dres and not req.dres_at:
                             # if still executing, wait
                             if (dres[IP].src == req.host
                                     and dres[MyProtocol].state == DWAIT):
                                 dreq_rt = PROTO_RETRIES
-                                info(req_id, 'still executing')
+                                console.info('%s still executing', req_id)
                             # if response from previous host
                             # let MyProtocolAM handle it
                             if dres[IP].src != req.host:
@@ -522,14 +539,15 @@ def send_request(cos_id: int, data: bytes):
                                             and MyProtocol in pkt
                                             and pkt[MyProtocol].req_id == req_id
                                             and pkt[MyProtocol].state == DRES)),
-                                        filter='inbound', count=1, iface=MY_IFACE,
+                                        filter='inbound', count=1,
+                                        iface=MY_IFACE,
                                         timeout=PROTO_TIMEOUT)[0]
                                 except:
                                     dres = None
                                     continue
                             if dres[MyProtocol].state == DCAN:
-                                info(
-                                    'Recv data exchange cancellation from %s' % req.host)
+                                console.info('Recv data exchange cancellation '
+                                             'from %s', req.host)
                                 dres[MyProtocol].show()
                                 # re-send hreq
                                 attempt.state = DCAN
@@ -540,32 +558,34 @@ def send_request(cos_id: int, data: bytes):
                                 req.result = dres.data
                                 attempt.dres_at = req.dres_at
                                 attempt.state = DRES
-                                info('Recv data exchange response from %s' %
-                                     req.host)
+                                console.info('Recv data exchange response '
+                                             'from %s', req.host)
                                 dres[MyProtocol].show()
-                                info(
-                                    'Send data exchange acknowledgement to %s' % req.host)
-                                info(req)
+                                console.info('Send data exchange '
+                                             'acknowledgement to %s', req.host)
+                                if PROTO_VERBOSE:
+                                    print(req)
                                 send(IP(dst=req.host)
                                      / MyProtocol(state=DACK, req_id=req_id),
                                      verbose=0, iface=MY_IFACE)
                             Thread(target=save_req, args=(req,)).start()
                             return req.result
                         elif not req.dres_at:
-                            info('No data')
+                            console.info('No data')
                     hres = None
                     if dreq_rt == 0:
                         # dres could arrive later
                         req._late = True
                 elif not req.dres_at:
-                    info('No resources')
+                    console.info('No resources')
             hres = None
         elif not req.dres_at:
-            info('No hosts')
+            console.info('No hosts')
 
     if not req.dres_at:
         req.state = FAIL
-    info(req)
+    if PROTO_VERBOSE:
+        print(req)
     Thread(target=save_req, args=(req,)).start()
     # if late dres
     if req.dres_at:

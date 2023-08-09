@@ -41,23 +41,24 @@ from threading import Thread
 from argparse import ArgumentParser
 from atexit import register as at_exit
 from signal import signal, SIGINT
-from sys import exit as sys_exit
-from logging import getLogger
+from logging import getLogger, INFO, WARNING
 from flask import cli
 from ipaddress import ip_address
 
 from manager import Manager
 from model import Node
+from utils import all_exit
 from netapp_cli import netapp_cli
+from logger import console, file
 from consts import (MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH,
                     SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR)
 
 
 # disable flask console messages
 getLogger('werkzeug').disabled = True
-cli.show_server_banner = lambda *args: None
+cli.show_server_banner = lambda *_: None
 
-
+# cli options parser
 parser = ArgumentParser()
 
 
@@ -149,16 +150,19 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
 
     if mode not in (MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH):
         parser.print_help()
-        sys_exit()
+        all_exit()
+
+    # config console logger level
+    console.setLevel(INFO if verbose else WARNING)
 
     try:
         server_ip, server_api_port = server.split(':')
         environ['SERVER_IP'] = ip_address(server_ip).exploded
         environ['SERVER_API_PORT'] = str(int(server_api_port))
     except:
-        print(' *** ERROR in client: '
-              'server format must be IP:PORT (e.g. 127.0.0.1:8080)')
-        exit()
+        console.error('Server format must be IP:PORT (e.g. 127.0.0.1:8080)')
+        file.exception('Server format must be IP:PORT (e.g. 127.0.0.1:8080)')
+        all_exit()
 
     if mode == MODE_RESOURCE:
         environ['IS_RESOURCE'] = 'True'
@@ -174,10 +178,9 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
     mgr = Manager(node, verbose)
 
     # disconnect at exit
-    def _signal_handler(_, __):
+    def _signal_handler(*_):
         at_exit(mgr.disconnect)
-        print()
-        sys_exit()
+        all_exit()
     signal(SIGINT, _signal_handler)
 
     mgr.connect(mode, **kwargs)
@@ -200,7 +203,7 @@ if __name__ == '__main__':
                 dpid=args.dpid)
     else:
         parser.print_help()
-        sys_exit()
+        all_exit()
 
     if mode in (MODE_CLIENT, MODE_RESOURCE):
         from protocol import PROTO_SEND_TO
@@ -210,7 +213,7 @@ if __name__ == '__main__':
             from gui import app
             app.logger.disabled = True
             Thread(target=app.run, args=('0.0.0.0',)).start()
-            print('\nGUI started at http://' + MY_IP + ':8050\n')
+            console.info('GUI started at http://' + MY_IP + ':8050')
 
             # show host resources
             from simulator import get_resources

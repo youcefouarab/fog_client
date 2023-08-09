@@ -4,12 +4,12 @@
 
 
 from os import getenv
-from logging import basicConfig, INFO
 from string import ascii_letters, digits
 from random import choice
 
 from model import CoS, Request, Attempt, Response
 from api import add_request
+from logger import console, file
 from network import MY_IP
 from consts import *
 
@@ -19,10 +19,11 @@ PROTO_NAME = 'MyProtocol'
 
 _stp_enabled = getenv('NETWORK_STP_ENABLED', '').upper()
 if _stp_enabled not in ('TRUE', 'FALSE'):
-    print(' *** WARNING in protocol.settings: '
-          'NETWORK:STP_ENABLED parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to False.')
+    console.warning('NETWORK:STP_ENABLED parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to False')
+    file.warning('NETWORK:STP_ENABLED parameter (%s) invalid or missing '
+                 'from received configuration', str(_stp_enabled))
     _stp_enabled = 'FALSE'
 STP_ENABLED = _stp_enabled == 'TRUE'
 
@@ -32,38 +33,39 @@ if (_proto_send_to not in (SEND_TO_BROADCAST,
                            SEND_TO_NONE)
     or (_proto_send_to == SEND_TO_BROADCAST
         and not STP_ENABLED)):
-    print(' *** WARNING in protocol.settings: '
-          'PROTOCOL:SEND_TO parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to ' + SEND_TO_NONE + ' (protocol will not be used).')
+    console.warning('PROTOCOL:SEND_TO parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to ' +
+                    SEND_TO_NONE + ' (protocol will not be used)')
+    file.warning('PROTOCOL:SEND_TO parameter (%s) invalid or missing from '
+                 'received configuration', str(_proto_send_to))
     _proto_send_to = SEND_TO_NONE
 PROTO_SEND_TO = _proto_send_to
 
 try:
     PROTO_TIMEOUT = float(getenv('PROTOCOL_TIMEOUT', None))
 except:
-    print(' *** WARNING in protocol.settings: '
-          'PROTOCOL:TIMEOUT parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to 1s.')
+    console.warning('PROTOCOL:TIMEOUT parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to 1s')
+    file.warning('PROTOCOL:TIMEOUT parameter invalid or missing from '
+                 'received configuration', exc_info=True)
     PROTO_TIMEOUT = 1
 
 try:
     PROTO_RETRIES = float(getenv('PROTOCOL_RETRIES', None))
 except:
-    print(' *** WARNING in protocol.settings: '
-          'PROTOCOL:RETRIES parameter invalid or missing from received '
-          'configuration. '
-          'Defaulting to 3 retries.')
+    console.warning('PROTOCOL:RETRIES parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to 1s')
+    file.warning('PROTOCOL:RETRIES parameter invalid or missing from '
+                 'received configuration', exc_info=True)
     PROTO_RETRIES = 3
 
 _proto_verbose = getenv('PROTOCOL_VERBOSE', '').upper()
 if _proto_verbose not in ('TRUE', 'FALSE'):
     _proto_verbose = 'FALSE'
 PROTO_VERBOSE = _proto_verbose == 'TRUE'
-
-if PROTO_VERBOSE:
-    basicConfig(level=INFO, format='%(message)s')
 
 cos_dict = {cos.id: cos for cos in CoS.select()}
 cos_names = {id: cos.name for id, cos in cos_dict.items()}
@@ -125,6 +127,7 @@ def save_req(req: Request):
     #  send request to server (for logging)
     sent, *code = add_request(req)
     if not sent:
-        print(' *** ERROR in protocol.settings: '
-              'Request info failed to send to server for logging %s. '
-              'Only saved locally.' % str(code))
+        console.error('Request info failed to send to server for logging %s. '
+                      'Only saved locally.', str(code))
+        file.error('Request info failed to send to server for logging %s. '
+                   'Only saved locally.', str(code))

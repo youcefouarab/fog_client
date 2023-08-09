@@ -34,15 +34,17 @@ from csv import writer
 from model import Model, CoS, Request, Attempt, Response
 from network import MY_IP
 from consts import ROOT_PATH
+from logger import console, file
+from utils import all_exit
 
 
 # table definitions
 try:
     DEFINITIONS = open(ROOT_PATH + '/definitions.sql', 'r').read()
 except:
-    print(' *** ERROR in dblib: '
-          'definitions.sql file missing from client/data directory.')
-    exit()
+    console.error('Could not read definitions.sql file in root directory')
+    file.exception('Could not read definitions.sql file in root directory')
+    all_exit()
 
 # database file
 DB_PATH = ROOT_PATH + '/data/database.' + MY_IP + '.db'
@@ -96,7 +98,8 @@ def insert(obj: Model):
         return True
 
     except Exception as e:
-        print(' *** ERROR in dblib.insert', e.__class__.__name__, e)
+        console.error(e.__class__.__name__, e)
+        file.exception(e.__class__.__name__)
         return False
 
 
@@ -130,7 +133,8 @@ def update(obj: Model, _id: tuple = ('id',)):
         return True
 
     except Exception as e:
-        print(' *** ERROR in dblib.update', e.__class__.__name__, e)
+        console.error(e.__class__.__name__, e)
+        file.exception(e.__class__.__name__)
         return False
 
 
@@ -171,7 +175,8 @@ def select(cls, fields: tuple = ('*',), groups: tuple = None,
         return _rows[event]
 
     except Exception as e:
-        print(' *** ERROR in dblib.select', e.__class__.__name__, e)
+        console.error(e.__class__.__name__, e)
+        file.exception(e.__class__.__name__)
         return None
 
 
@@ -218,7 +223,8 @@ def select_page(cls, page: int, page_size: int, fields: tuple = ('*',),
         return _rows[event]
 
     except Exception as e:
-        print(' *** ERROR in dblib.select_page', e.__class__.__name__, e)
+        console.error(e.__class__.__name__, e)
+        file.exception(e.__class__.__name__)
         return None
 
 
@@ -241,14 +247,15 @@ def as_csv(cls, fields: tuple = ('*',), abs_path: str = '', _suffix: str = '',
                 fields = _get_columns(cls)
             with open(abs_path if abs_path else (
                     ROOT_PATH + '/data/' + _tables[cls.__name__] + _suffix + '.csv'),
-                    'w', newline='') as file:
-                csv_writer = writer(file)
+                    'w', newline='') as csv_file:
+                csv_writer = writer(csv_file)
                 csv_writer.writerow(fields)
                 csv_writer.writerows(rows)
             return True
 
         except Exception as e:
-            print(' *** ERROR in dblib.as_csv', e.__class__.__name__, e)
+            console.error(e.__class__.__name__, e)
+            file.exception(e.__class__.__name__)
             return False
     else:
         return False
@@ -282,8 +289,9 @@ class Connection:
                 script = script[:-1] + ';'
                 self._connection.executescript(script)
             except:
-                print(' *** ERROR in dblib.Connection: '
-                      'Could not load CoS from received configuration.')
+                console.error('Could not load CoS from received configuration')
+                file.exception(
+                    'Could not load CoS from received configuration')
         return self._connection
 
 
@@ -301,7 +309,8 @@ def _execute():
                 cursor.connection.commit()
 
         except Exception as e:
-            print(' *** ERROR in dblib._execute', e.__class__.__name__, e)
+            console.error(e.__class__.__name__, e)
+            file.exception(e.__class__.__name__)
 
 
 Thread(target=_execute).start()

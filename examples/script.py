@@ -1,27 +1,35 @@
 from os import getenv
 from threading import Thread
 from time import sleep
+from logging import INFO, WARNING
 
 from context import *
 from client.consts import MODE_CLIENT, MODE_RESOURCE
 from client.client import connect
+from client.logger import console, file
+from client.utils import all_exit
 
-
-MODE = getenv('MODE', None)
-if MODE not in (MODE_CLIENT, MODE_RESOURCE):
-    print(' *** ERROR in script: '
-          'MODE environment variable invalid or missing.')
-    exit()
-
-SERVER = getenv('SERVER', None)
-
-ID = getenv('ID', None)
-LABEL = getenv('LABEL', None)
 
 _verbose = getenv('VERBOSE', '').upper()
 if _verbose not in ('TRUE', 'FALSE'):
     _verbose = 'FALSE'
 VERBOSE = _verbose == 'TRUE'
+
+console.setLevel(INFO if VERBOSE else WARNING)
+
+MODE = getenv('MODE', None)
+_MODES = (MODE_CLIENT, MODE_RESOURCE)
+if MODE not in _MODES:
+    console.error('MODE environment variable invalid or missing (must be '
+                  '%s or %s)', _MODES)
+    file.error('MODE environment variable (%s) invalid or missing (must be '
+               '%s or %s)', MODE, _MODES)
+    all_exit()
+
+SERVER = getenv('SERVER', None)
+
+ID = getenv('ID', None)
+LABEL = getenv('LABEL', None)
 
 if MODE == MODE_RESOURCE:
     LIMIT = getenv('LIMIT', 'None')
@@ -45,56 +53,62 @@ sleep(1)
 try:
     COS_ID = int(getenv('COS_ID', None))
 except:
-    print(' *** WARNING in script: '
-          'COS_ID environment variable invalid or missing. '
-          'Defaulting to 1 (best-effort).')
+    console.warning('COS_ID environment variable invalid or missing. '
+                    'Defaulting to 1 (best-effort)')
+    file.warning(
+        'COS_ID environment variable invalid or missing', exc_info=True)
     COS_ID = 1
 
 try:
     DELAY = float(getenv('DELAY', None))
 except:
-    print(' *** WARNING in script: '
-          'DELAY environment variable invalid or missing. '
-          'Defaulting to 1s.')
+    console.warning('DELAY environment variable invalid or missing. '
+                    'Defaulting to 1s')
+    file.warning(
+        'DELAY environment variable invalid or missing', exc_info=True)
     DELAY = 1
 
 try:
     INTERVAL = float(getenv('INTERVAL', None))
 except:
-    print(' *** WARNING in script: '
-          'INTERVAL environment variable invalid or missing. '
-          'Defaulting to 1s.')
+    console.warning('INTERVAL environment variable invalid or missing. '
+                    'Defaulting to 1s')
+    file.warning('INTERVAL environment variable invalid or missing',
+                 exc_info=True)
     INTERVAL = 1
 
 try:
     THREADS = int(getenv('THREADS', None))
 except:
-    print(' *** WARNING in script: '
-          'THREADS environment variable invalid or missing. '
-          'Defaulting to 1.')
+    console.warning('THREADS environment variable invalid or missing. '
+                    'Defaulting to 1')
+    file.warning(
+        'THREADS environment variable invalid or missing', exc_info=True)
     THREADS = 1
 
 try:
     TOTAL = int(getenv('TOTAL', None))
 except:
-    print(' *** WARNING in script: '
-          'TOTAL environment variable invalid or missing. '
-          'Defaulting to 1.')
+    console.warning('TOTAL environment variable invalid or missing. '
+                    'Defaulting to 1')
+    file.warning(
+        'TOTAL environment variable invalid or missing', exc_info=True)
     TOTAL = 1
 
 _sequential = getenv('SEQUENTIAL', '').upper()
 if _sequential not in ('TRUE', 'FALSE'):
-    print(' *** WARNING in script: '
-          'SEQUENTIAL environment variable invalid or missing. '
-          'Defaulting to False.')
+    console.warning('SEQUENTIAL environment variable invalid or missing. '
+                    'Defaulting to False')
+    file.warning('SEQUENTIAL environment (%s) variable invalid or missing',
+                 _sequential)
     _sequential = 'FALSE'
 SEQUENTIAL = _sequential == 'TRUE'
 
 _data = getenv('DATA', None)
 if _data == None:
-    print(' *** WARNING in script: '
-          'DATA environment variable missing. '
-          'No data will be sent.')
+    console.warning('DATA environment variable missing. '
+                    'No data will be sent')
+    file.warning('DATA environment variable missing')
     _data = ''
 DATA = _data.encode()
 

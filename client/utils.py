@@ -1,6 +1,7 @@
 from socket import socket, AF_INET, SOCK_DGRAM
 from psutil import net_if_addrs
 from ipaddress import ip_address, ip_network
+from sys import exit as sys_exit
 
 
 def get_iface(network: str):
@@ -49,3 +50,7 @@ def get_ip(network: str = None, interface: str = None):
         if addr.family == AF_INET:
             return addr.address
     return get_default_ip()
+
+
+def all_exit():
+    sys_exit()

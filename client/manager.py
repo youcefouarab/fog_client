@@ -1,4 +1,4 @@
-from os import environ, getenv, get_terminal_size
+from os import environ, getenv
 from threading import Thread
 from time import sleep
 from psutil import net_if_addrs
@@ -9,6 +9,8 @@ from uuid import getnode
 from meta import SingletonMeta
 from model import Node, NodeType, Interface
 from consts import MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS
+from logger import console, file
+from utils import all_exit
 
 
 class Manager(metaclass=SingletonMeta):
@@ -71,43 +73,47 @@ class Manager(metaclass=SingletonMeta):
 
         from api import get_config, add_node
         conf = None
+        _code = [0, 0]
+        console.info('Getting configuration')
         while conf == None:
-            if self.verbose:
-                print(' *** Getting configuration', end='\r')
-            conf, *_ = get_config()
+            conf, *code = get_config()
             if conf:
                 for param, value in conf.items():
                     if value != None:
                         environ[param] = str(value)
             else:
+                file.error(code)
+                if _code[0] != code[0] or _code[1] != code[1]:
+                    console.error(code)
+                    _code = code
                 sleep(1)
-        if self.verbose:
-            print('\n *** Done')
+        console.info('Done')
 
         if not self.node:
             self._build(**kwargs)
 
         if mode == MODE_CLIENT or mode == MODE_RESOURCE:
-            code = [None, None]
+            _code = [0, 0]
+            console.info('Connecting')
             while not self._connected:
-                if self.verbose:
-                    just = get_terminal_size()[0]
-                    print((' *** Connecting %s' % str(code)).ljust(just),
-                          end='\r')
                 added, *code = add_node(self.node)
-                if code == HTTP_EXISTS:
-                    print(' *** ERROR: Already connected')
-                    exit()
+                if code[0] == HTTP_EXISTS:
+                    console.error('Already connected')
+                    file.error('%s already connected', str(self.node.id))
+                    all_exit()
                 else:
                     if added:
                         self._connected = True
-                        if self.verbose:
-                            print('\n *** Done')
-                        print(' *** Node added successfully')
+                        console.info('Done')
+                        console.info('Node added successfully')
                         Thread(target=self._udp_connect).start()
                         Thread(target=self._update_specs).start()
 
                     else:
+                        file.error(code)
+                        if _code[0] != code[0] or _code[1] != code[1]:
+                            console.error(code)
+                            _code = code
                         sleep(1)
 
         else:
@@ -124,20 +130,19 @@ class Manager(metaclass=SingletonMeta):
         '''
 
         from api import delete_node
-        if self.verbose:
-            print(' *** Disconnecting')
+        console.info('Disconnecting')
         self._connected = False
         if self._mode != MODE_SWITCH:
-            deleted, *code = delete_node(self.node)
-            if deleted:
-                if self.verbose:
-                    print(' *** Done\n'
-                          ' *** Node deleted successfully')
-                return True
-            else:
-                if self.verbose:
-                    print(' *** Node not deleted %s' % str(code))
-                return False
+            if self.node:
+                deleted, *code = delete_node(self.node)
+                if deleted:
+                    console.info('Done')
+                    console.info('Node deleted successfully')
+                else:
+                    console.error('Node not deleted %s', str(code))
+                    file.error('Node not deleted %s', str(code))
+                    return False
+            return True
 
     def _get_id(self):
         return ':'.join(findall('..', '%012x' % getnode()))  # MAC
@@ -146,20 +151,19 @@ class Manager(metaclass=SingletonMeta):
         return gethostname()
 
     def _build(self, **kwargs):
-        if self.verbose:
-            print(' *** Building node and interfaces')
+        console.info('Building node and interfaces')
         if self._mode == MODE_SWITCH:
             try:
                 id = kwargs['dpid']
                 int(id, 16)
             except KeyError:
-                print(' *** ERROR in manager._build: '
-                      'dpid kwarg missing.')
-                exit()
+                console.error('DPID argument missing')
+                file.exception('DPID argument missing')
+                all_exit()
             except ValueError:
-                print(' *** ERROR in manager._build: '
-                      'dpid kwarg invalid (must be hexadecimal).')
-                exit()
+                console.error('DPID argument invalid (must be hexadecimal)')
+                file.exception('DPID argument invalid (must be hexadecimal)')
+                all_exit()
             type = NodeType(NodeType.SWITCH)
             label = ''
         else:
@@ -188,26 +192,27 @@ class Manager(metaclass=SingletonMeta):
                     if snic.family == AF_PACKET:
                         interface.mac = snic.address
                 self.node.interfaces[name] = interface
-        if self.verbose:
-            print(' *** Done')
+        console.info('Done')
 
     def _udp_connect(self):
         from common import SERVER_IP
         try:
             UDP_PORT = int(getenv('ORCHESTRATOR_UDP_PORT', None))
         except:
-            print(' *** WARNING in manager._udp_connect: '
-                  'ORCHESTRATOR:UDP_PORT parameter invalid or missing from '
-                  'received configuration. '
-                  'Defaulting to 7070.')
+            console.warn('ORCHESTRATOR:UDP_PORT parameter invalid or missing '
+                         'from received configuration. '
+                         'Defaulting to 7070')
+            file.warn('ORCHESTRATOR:UDP_PORT parameter invalid or missing '
+                      'from received configuration', exc_info=True)
             UDP_PORT = 7070
         try:
             UDP_TIMEOUT = float(getenv('ORCHESTRATOR_UDP_TIMEOUT', None))
         except:
-            print(' *** WARNING in manager._udp_connect: '
-                  'ORCHESTRATOR:UDP_TIMEOUT parameter invalid or missing from '
-                  'received configuration. '
-                  'Defaulting to 1s.')
+            console.warn('ORCHESTRATOR:UDP_TIMEOUT parameter invalid or '
+                         'missing from received configuration. '
+                         'Defaulting to 1s')
+            file.warn('ORCHESTRATOR:UDP_TIMEOUT parameter invalid or '
+                      'missing from received configuration', exc_info=True)
             UDP_TIMEOUT = 1
         period = UDP_TIMEOUT / 2
         udp_client = socket(family=AF_INET, type=SOCK_DGRAM)
@@ -235,6 +240,7 @@ class Manager(metaclass=SingletonMeta):
                 self.node.set_memory_total(MEASURES['memory_total'])
                 self.node.set_disk_total(MEASURES['disk_total'])
 
+        _code = [0, 0]
         while self._connected:
             sleep(MONITOR_PERIOD)
             # current resources are gotten from simulator
@@ -254,20 +260,18 @@ class Manager(metaclass=SingletonMeta):
 
             updated, *code = update_node_specs(self.node)
             if updated:
-                if self.verbose:
+                if _code[0] != code[0] or _code[1] != code[1]:
                     if self._mode == MODE_RESOURCE:
-                        just = get_terminal_size()[0]
-                        print(' *** Node specs are being sent'.ljust(just),
-                              end='\r')
+                        console.info('Node specs are being sent')
                     else:
-                        just = get_terminal_size()[0]
-                        print(' *** Network specs are being sent'.ljust(just),
-                              end='\r')
+                        console.info('Network specs are being sent')
+                    _code = code
+
             else:
-                if self.verbose:
-                    just = get_terminal_size()[0]
-                    print((' *** Specs are not being sent %s'
-                           % str(code)).ljust(just), end='\r')
+                file.error('Specs are not being sent %s', str(code))
+                if _code[0] != code[0] or _code[1] != code[1]:
+                    console.error('Specs are not being sent %s', str(code))
+                    _code = code
 
                 # if connection to controller was lost but is back
                 # re-add node in case it was deleted

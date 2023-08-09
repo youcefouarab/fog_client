@@ -28,18 +28,22 @@
 
 
 from os import getenv
-from requests import get, post, put, delete, RequestException
+from requests import get, post, put, delete
+from html.parser import HTMLParser
 
 from model import Node, Request
 from common import SERVER_IP
 from consts import HTTP_EXISTS, HTTP_SUCCESS
+from logger import console, file
+from utils import all_exit
 
 
 try:
     API_PORT = int(getenv('SERVER_API_PORT', None))
 except:
-    print(' *** ERROR in api: Server API port invalid or missing.')
-    exit()
+    console.error('Server API port invalid or missing')
+    file.exception('Server API port invalid or missing')
+    all_exit()
 
 
 # ====================
@@ -105,14 +109,30 @@ RYU_URL = 'http://' + SERVER_IP + ':' + str(API_PORT)
 RYU_HEADERS = {'content-type': 'application/json'}
 
 
+class _HTML(HTMLParser):
+    text = ''
+
+    def handle_data(self, data):
+        self.text += data
+
+    def get(self, text):
+        self.feed(text)
+        msg = self.text
+        self.text = ''
+        return msg
+
+
+_html = _HTML()
+
+
 def _ryu_request(method: str, path: str, data: dict = {}):
-    url = RYU_URL + path
-    method = method.upper()
     try:
+        url = RYU_URL + path
+        method = method.upper()
         if method == 'GET':
             r = get(url, headers=RYU_HEADERS, json=data)
             code = r.status_code
-            msg = r.text
+            msg = _html.get(r.text)
             return (r.json(), code, msg) if (
                 code == HTTP_SUCCESS) else (None, code, msg)
         elif method == 'POST':
@@ -122,11 +142,11 @@ def _ryu_request(method: str, path: str, data: dict = {}):
         elif method == 'DELETE':
             r = delete(url, headers=RYU_HEADERS, json=data)
         code = r.status_code
-        msg = r.text
+        msg = _html.get(r.text)
         return ((code == HTTP_SUCCESS or code == HTTP_EXISTS), code, msg)
-
-    except (RequestException, ValueError):
-        return None, None, None
+    except Exception as e:
+        file.exception(e.__class__.__name__)
+        return None, None, e.__class__.__name__
 
 
 def _ryu_get_config():
