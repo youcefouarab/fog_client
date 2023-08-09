@@ -51,11 +51,11 @@ MONITOR = Monitor()
 try:
     MONITOR_PERIOD = float(getenv('MONITOR_PERIOD', None))
 except:
-    console.warn('MONITOR_PERIOD parameter invalid or missing from received '
-                 'configuration. '
-                 'Defaulting to 1s')
-    file.warn('MONITOR_PERIOD parameter invalid or missing from received '
-              'configuration', exc_info=True)
+    console.warning('MONITOR_PERIOD parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to 1s')
+    file.warning('MONITOR_PERIOD parameter invalid or missing from received '
+                 'configuration', exc_info=True)
     MONITOR_PERIOD = 1
 
 MONITOR.set_monitor_period(MONITOR_PERIOD)
@@ -63,11 +63,11 @@ MONITOR.start()
 
 _sim_on = getenv('SIMULATOR_ACTIVE', '').upper()
 if _sim_on not in ('TRUE', 'FALSE'):
-    console.warn('SIMULATOR:ACTIVE parameter invalid or missing from received '
-                 'configuration. '
-                 'Defaulting to False')
-    file.warn('SIMULATOR:ACTIVE parameter (%s) invalid or missing from '
-              'received configuration', _sim_on)
+    console.warning('SIMULATOR:ACTIVE parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to False')
+    file.warning('SIMULATOR:ACTIVE parameter (%s) invalid or missing from '
+                 'received configuration', _sim_on)
     _sim_on = 'FALSE'
 SIM_ON = _sim_on == 'TRUE'
 
@@ -148,14 +148,15 @@ if IS_RESOURCE:
     try:
         _limit = float(getenv('RESOURCE_LIMIT', None))
         if _limit < 0 or _limit > 100:
-            console.warn('Resource limit argument invalid (must be %). '
-                         'Defaulting to 0%')
-            file.warn('Resource limit argument (%s) invalid', str(_limit))
+            console.warning('Resource limit argument invalid (must be %). '
+                            'Defaulting to 0%')
+            file.warning('Resource limit argument (%s) invalid', str(_limit))
             _limit = 0
     except:
-        console.warn('Resource limit argument invalid or missing. '
-                     'Defaulting to 0%')
-        file.warn('Resource limit argument invalid or missing', exc_info=True)
+        console.warning('Resource limit argument invalid or missing. '
+                        'Defaulting to 0%')
+        file.warning('Resource limit argument invalid or missing',
+                     exc_info=True)
         _limit = 0
     # limit is the max resource usage (e.g. can't surpass 80%)
     LIMIT = _limit / 100
@@ -189,28 +190,28 @@ try:
     try:
         SIM_EXEC_MAX = float(getenv('SIMULATOR_EXEC_MAX', None))
         if SIM_EXEC_MAX < SIM_EXEC_MIN:
-            console.warn('SIMULATOR:EXEC_MIN and SIMULATOR:EXEC_MAX '
-                         'parameters invalid in received configuration. '
-                         'Defaulting to [0s, 1s]')
-            file.warn('SIMULATOR:EXEC_MIN and SIMULATOR:EXEC_MAX '
-                      'parameters (%s and %s) invalid in received '
-                      'configuration', str(SIM_EXEC_MIN), str(SIM_EXEC_MAX))
+            console.warning('SIMULATOR:EXEC_MIN and SIMULATOR:EXEC_MAX '
+                            'parameters invalid in received configuration. '
+                            'Defaulting to [0s, 1s]')
+            file.warning('SIMULATOR:EXEC_MIN and SIMULATOR:EXEC_MAX '
+                         'parameters (%s and %s) invalid in received '
+                         'configuration', str(SIM_EXEC_MIN), str(SIM_EXEC_MAX))
             SIM_EXEC_MIN = 0
             SIM_EXEC_MAX = 1
     except:
-        console.warn('SIMULATOR:EXEC_MAX parameter invalid or missing from '
-                     'received configuration. '
-                     'Defaulting to [0s, 1s]')
-        file.warn('SIMULATOR:EXEC_MAX parameter invalid or missing from '
-                  'received configuration', exc_info=True)
+        console.warning('SIMULATOR:EXEC_MAX parameter invalid or missing from '
+                        'received configuration. '
+                        'Defaulting to [0s, 1s]')
+        file.warning('SIMULATOR:EXEC_MAX parameter invalid or missing from '
+                     'received configuration', exc_info=True)
         SIM_EXEC_MIN = 0
         SIM_EXEC_MAX = 1
 except:
-    console.warn('SIMULATOR:EXEC_MIN parameter invalid or missing from '
-                 'received configuration. '
-                 'Defaulting to [0s, 1s]')
-    file.warn('SIMULATOR:EXEC_MIN parameter invalid or missing from '
-              'received configuration', exc_info=True)
+    console.warning('SIMULATOR:EXEC_MIN parameter invalid or missing from '
+                    'received configuration. '
+                    'Defaulting to [0s, 1s]')
+    file.warning('SIMULATOR:EXEC_MIN parameter invalid or missing from '
+                 'received configuration', exc_info=True)
     SIM_EXEC_MIN = 0
     SIM_EXEC_MAX = 1
 

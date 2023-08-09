@@ -199,20 +199,20 @@ class Manager(metaclass=SingletonMeta):
         try:
             UDP_PORT = int(getenv('ORCHESTRATOR_UDP_PORT', None))
         except:
-            console.warn('ORCHESTRATOR:UDP_PORT parameter invalid or missing '
-                         'from received configuration. '
-                         'Defaulting to 7070')
-            file.warn('ORCHESTRATOR:UDP_PORT parameter invalid or missing '
-                      'from received configuration', exc_info=True)
+            console.warning('ORCHESTRATOR:UDP_PORT parameter invalid or '
+                            'missing from received configuration. '
+                            'Defaulting to 7070')
+            file.warning('ORCHESTRATOR:UDP_PORT parameter invalid or missing '
+                         'from received configuration', exc_info=True)
             UDP_PORT = 7070
         try:
             UDP_TIMEOUT = float(getenv('ORCHESTRATOR_UDP_TIMEOUT', None))
         except:
-            console.warn('ORCHESTRATOR:UDP_TIMEOUT parameter invalid or '
-                         'missing from received configuration. '
-                         'Defaulting to 1s')
-            file.warn('ORCHESTRATOR:UDP_TIMEOUT parameter invalid or '
-                      'missing from received configuration', exc_info=True)
+            console.warning('ORCHESTRATOR:UDP_TIMEOUT parameter invalid or '
+                            'missing from received configuration. '
+                            'Defaulting to 1s')
+            file.warning('ORCHESTRATOR:UDP_TIMEOUT parameter invalid or '
+                         'missing from received configuration', exc_info=True)
             UDP_TIMEOUT = 1
         period = UDP_TIMEOUT / 2
         udp_client = socket(family=AF_INET, type=SOCK_DGRAM)
