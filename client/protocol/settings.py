@@ -120,9 +120,9 @@ def save_req(req: Request):
     # if simulation is active (like mininet), create different CSV files for
     # different hosts (add IP address to file name)
     _suffix = '.' + MY_IP
-    Request.as_csv(_suffix=_suffix)
-    Attempt.as_csv(_suffix=_suffix)
-    Response.as_csv(_suffix=_suffix)
+    Request.as_csv(orders=('hreq_at',), _suffix=_suffix)
+    Attempt.as_csv(orders=('hreq_at',), _suffix=_suffix)
+    Response.as_csv(orders=('timestamp',), _suffix=_suffix)
 
     #  send request to server (for logging)
     sent, *code = add_request(req)
