@@ -46,7 +46,7 @@ from flask import cli
 from ipaddress import ip_address
 
 from manager import Manager
-from model import Node
+from model import Node, CoS
 from utils import all_exit
 from netapp_cli import netapp_cli
 from logger import console, file
@@ -208,20 +208,19 @@ if __name__ == '__main__':
     if mode in (MODE_CLIENT, MODE_RESOURCE):
         from protocol import PROTO_SEND_TO
         if PROTO_SEND_TO in (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR):
-            # start gui
-            from network import MY_IP
+            from resources import MY_IP, get_resources
+            from protocol import send_request
             from gui import app
+
+            # start gui
             app.logger.disabled = True
             Thread(target=app.run, args=('0.0.0.0',)).start()
             console.info('GUI started at http://' + MY_IP + ':8050')
 
             # show host resources
-            from simulator import get_resources
             get_resources(_all=True)
 
             # start cli
-            from protocol import send_request
-            from model import CoS
             netapp_cli(mode, send_request, {
                 cos[0]: cos[1] for cos in sorted(
                     CoS.select(fields=('id', 'name'), as_obj=False))})

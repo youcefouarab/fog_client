@@ -35,18 +35,12 @@ from os import getenv
 from threading import Lock
 from random import uniform
 from time import sleep
-from psutil import net_if_addrs
 
+from .monitor import Monitor
 from model import Request
-from common import IS_RESOURCE
-from network import MY_IFACE
-from monitor import Monitor
 from logger import console, file
 from utils import all_exit
 
-
-# monitoring config
-MONITOR = Monitor()
 
 try:
     MONITOR_PERIOD = float(getenv('MONITOR_PERIOD', None))
@@ -58,8 +52,23 @@ except:
                  'configuration', exc_info=True)
     MONITOR_PERIOD = 1
 
-MONITOR.set_monitor_period(MONITOR_PERIOD)
+MONITOR = Monitor(MONITOR_PERIOD)
 MONITOR.start()
+MEASURES = MONITOR.measures
+
+# wait for monitor
+while ('cpu_count' not in MEASURES
+       or 'cpu_free' not in MEASURES
+       or 'memory_total' not in MEASURES
+       or 'memory_free' not in MEASURES
+       or 'disk_total' not in MEASURES
+       or 'disk_free' not in MEASURES):
+    sleep(0.1)
+
+_is_resource = getenv('IS_RESOURCE', '').upper()
+if _is_resource not in ('TRUE', 'FALSE'):
+    _is_resource = 'FALSE'
+IS_RESOURCE = _is_resource == 'TRUE'
 
 _sim_on = getenv('SIMULATOR_ACTIVE', '').upper()
 if _sim_on not in ('TRUE', 'FALSE'):
@@ -71,80 +80,37 @@ if _sim_on not in ('TRUE', 'FALSE'):
     _sim_on = 'FALSE'
 SIM_ON = _sim_on == 'TRUE'
 
-if SIM_ON:
-    try:
-        CPU = int(getenv('HOST_CPU'))
-    except:
-        if not IS_RESOURCE:
-            CPU = 0
-        else:
+_cpu = 0
+_ram = 0
+_disk = 0
+_limit = 0
+_threshold = 1
+
+if IS_RESOURCE:
+    if SIM_ON:
+        try:
+            _cpu = int(getenv('HOST_CPU', None))
+        except:
             console.error('CPU argument invalid or missing')
             file.exception('CPU argument invalid or missing')
             all_exit()
-
-    try:
-        RAM = int(getenv('HOST_RAM'))
-    except:
-        if not IS_RESOURCE:
-            RAM = 0
-        else:
+        try:
+            _ram = float(getenv('HOST_RAM', None))
+        except:
             console.error('RAM argument invalid or missing')
             file.exception('RAM argument invalid or missing')
             all_exit()
-
-    try:
-        DISK = int(getenv('HOST_DISK'))
-    except:
-        if not IS_RESOURCE:
-            DISK = 0
-        else:
+        try:
+            _disk = float(getenv('HOST_DISK', None))
+        except:
             console.error('Disk argument invalid or missing')
             file.exception('Disk argument invalid or missing')
             all_exit()
+    else:
+        _cpu = MEASURES['cpu_count']
+        _ram = MEASURES['memory_total']
+        _disk = MEASURES['disk_total']
 
-    '''
-    try:
-        EGRESS = int(getenv('HOST_EGRESS'))
-    except:
-        if not IS_RESOURCE:
-            EGRESS = 0
-        else:
-            console.error('Egress argument invalid or missing')
-            file.exception('Egress argument invalid or missing')
-            all_exit()
-
-    try:
-        INGRESS = int(getenv('HOST_INGRESS'))
-    except:
-        if not IS_RESOURCE:
-            INGRESS = 0
-        else:
-            console.error('Ingress argument invalid or missing')
-            file.exception('Ingress argument invalid or missing')
-            all_exit()
-    '''
-
-else:
-    # wait for monitor
-    MEASURES = MONITOR.measures
-    wait = 0.1
-    while ('cpu_count' not in MEASURES
-           or 'cpu_free' not in MEASURES
-           or 'memory_total' not in MEASURES
-           or 'memory_free' not in MEASURES
-           or 'disk_total' not in MEASURES
-           or 'disk_free' not in MEASURES):
-        sleep(wait)
-
-    # for iface in net_if_addrs():
-    #    if iface != 'lo':
-    #        while ('capacity' not in MEASURES.get(iface, {})
-    #               or 'bandwidth_up' not in MEASURES.get(iface, {})
-    #               or 'bandwidth_down' not in MEASURES.get(iface, {})):
-    #            sleep(wait)
-
-# limits and thresholds
-if IS_RESOURCE:
     try:
         _limit = float(getenv('RESOURCE_LIMIT', None))
         if _limit < 0 or _limit > 100:
@@ -159,32 +125,21 @@ if IS_RESOURCE:
                      exc_info=True)
         _limit = 0
     # limit is the max resource usage (e.g. can't surpass 80%)
-    LIMIT = _limit / 100
+    _limit = _limit / 100
     # threshold is the complementary of limit
     # (i.e. the remaining 20% that we can't reserve)
-    THRESHOLD = 1 - LIMIT
+    _threshold = 1 - _limit
     # both are gross values (to get percentages, multiply by 100)
 
-    if SIM_ON:
-        CPU_THRESHOLD = CPU * THRESHOLD
-        RAM_THRESHOLD = RAM * THRESHOLD
-        DISK_THRESHOLD = DISK * THRESHOLD
-    else:
-        CPU_THRESHOLD = MEASURES['cpu_count'] * THRESHOLD
-        RAM_THRESHOLD = MEASURES['memory_total'] * THRESHOLD
-        DISK_THRESHOLD = MEASURES['disk_total'] * THRESHOLD
+CPU = _cpu
+RAM = _ram
+DISK = _disk
+LIMIT = _limit
+THRESHOLD = _threshold
+CPU_THRESHOLD = CPU * THRESHOLD
+RAM_THRESHOLD = RAM * THRESHOLD
+DISK_THRESHOLD = DISK * THRESHOLD
 
-# simulation variables of reserved resources
-_reserved = {
-    'cpu': 0,
-    'ram': 0,  # in MB
-    'disk': 0,  # in GB
-    # 'egress': 0,  # in Mbps  # TODO separate interfaces
-    # 'ingress': 0,  # in Mbps  # TODO separate interfaces
-}
-_reserved_lock = Lock()  # for thread safety
-
-# simulated exec time interval
 try:
     SIM_EXEC_MIN = float(getenv('SIMULATOR_EXEC_MIN', None))
     try:
@@ -215,6 +170,14 @@ except:
     SIM_EXEC_MIN = 0
     SIM_EXEC_MAX = 1
 
+# simulation variables of reserved resources
+_reserved = {
+    'cpu': 0,
+    'ram': 0,  # in MB
+    'disk': 0,  # in GB
+}
+_reserved_lock = Lock()  # for thread safety
+
 
 def get_resources(quiet: bool = False, _all: bool = False):
     '''
@@ -222,18 +185,15 @@ def get_resources(quiet: bool = False, _all: bool = False):
     '''
 
     cpu = ram = disk = 0
-    if SIM_ON:
-        cpu = CPU - _reserved['cpu']
-        ram = RAM - _reserved['ram']
-        disk = DISK - _reserved['disk']
-        # egress = EGRESS - _reserved['egress']
-        # ingress = INGRESS - _reserved['ingress']
-    elif IS_RESOURCE:
-        cpu = MEASURES['cpu_free'] - _reserved['cpu']
-        ram = MEASURES['memory_free'] - _reserved['ram']
-        disk = MEASURES['disk_free'] - _reserved['disk']
-        # egress = MEASURES[MY_IFACE]['bandwidth_up'] - _reserved['egress']
-        # ingress = MEASURES[MY_IFACE]['bandwidth_down'] - _reserved['ingress']
+    if IS_RESOURCE:
+        if SIM_ON:
+            cpu = CPU - _reserved['cpu']
+            ram = RAM - _reserved['ram']
+            disk = DISK - _reserved['disk']
+        else:
+            cpu = MEASURES['cpu_free'] - _reserved['cpu']
+            ram = MEASURES['memory_free'] - _reserved['ram']
+            disk = MEASURES['disk_free'] - _reserved['disk']
     if _all:
         print('\nHost\'s real capacities')
         if not SIM_ON:
@@ -243,26 +203,25 @@ def get_resources(quiet: bool = False, _all: bool = False):
                   '    RAM FREE   = %.2f MB\n'
                   '    DISK TOTAL = %.2f GB\n'
                   '    DISK FREE  = %.2f GB' % (MEASURES['cpu_count'],
-                                                MEASURES['cpu_count'] *
-                                                100, '%',
+                                                MEASURES['cpu_count']*100, '%',
                                                 MEASURES['cpu_free'],
-                                                MEASURES['cpu_free'] *
-                                                100, '%',
+                                                MEASURES['cpu_free']*100, '%',
                                                 MEASURES['memory_total'],
                                                 MEASURES['memory_free'],
                                                 MEASURES['disk_total'],
                                                 MEASURES['disk_free']))
         else:
             print('Simulation is active, so real monitoring is unavailable')
+        print()
         if IS_RESOURCE:
-            print('\nAvailable for reservation\n'
+            print('Available for reservation\n'
                   '    CPU  = %.2f (%.2f%s)\n'
                   '    RAM  = %.2f MB\n'
                   '    DISK = %.2f GB\n'
                   '(with an overall usage limit of %.2f%s)' % (cpu,
-                                                               cpu * 100, '%',
+                                                               cpu*100, '%',
                                                                ram, disk,
-                                                               LIMIT * 100, '%'))
+                                                               LIMIT*100, '%'))
         else:
             print('No resources to offer in this mode')
         print()

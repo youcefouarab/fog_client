@@ -14,8 +14,3 @@ if SERVER_IP == None:
     console.error('Server argument missing')
     file.error('Server argument missing')
     all_exit()
-
-_is_resource = getenv('IS_RESOURCE', '').upper()
-if _is_resource not in ('TRUE', 'FALSE'):
-    _is_resource = 'FALSE'
-IS_RESOURCE = _is_resource == 'TRUE'

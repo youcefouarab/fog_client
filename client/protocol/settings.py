@@ -10,7 +10,7 @@ from random import choice
 from model import CoS, Request, Attempt, Response
 from api import add_request
 from logger import console, file
-from network import MY_IP
+from resources import MY_IP
 from consts import *
 
 

@@ -35,12 +35,11 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
                        AnsweringMachine, conf, bind_layers, send, srp1, sr1,
                        sniff, Ether, IP)
 
-from simulator import (get_resources, check_resources, reserve_resources,
-                       free_resources, execute)
+from resources import (get_resources, check_resources, reserve_resources,
+                       free_resources, execute, MY_IFACE, MY_IP, BROADCAST_IP,
+                       IS_RESOURCE)
 from model import Request, Response
 from logger import console
-from network import MY_IFACE, MY_IP, BROADCAST_IP
-from common import IS_RESOURCE
 from settings import *
 from consts import *
 
@@ -201,7 +200,7 @@ class MyProtocolAM(AnsweringMachine):
                 # old request)
                 _req.cos = cos_dict[my_proto.cos_id]
                 console.info('Checking resources')
-                cpu, ram, disk = get_resources()
+                cpu, ram, disk = get_resources(quiet=True)
                 check = check_resources(_req)
                 if check:
                     console.info('Send host response to %s', ip_src)

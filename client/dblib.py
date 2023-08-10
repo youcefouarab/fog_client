@@ -32,7 +32,7 @@ from sqlite3 import connect
 from csv import writer
 
 from model import Model, CoS, Request, Attempt, Response
-from network import MY_IP
+from resources import MY_IP
 from consts import ROOT_PATH
 from logger import console, file
 from utils import all_exit

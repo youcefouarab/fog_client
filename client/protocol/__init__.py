@@ -35,14 +35,14 @@ path.append(dirname(__file__))
 # method is called, so only import after
 
 
-from settings import PROTO_SEND_TO
+from .settings import PROTO_SEND_TO
 from consts import SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR
 
 
 if PROTO_SEND_TO == SEND_TO_BROADCAST:
-    from protocol_bcst import send_request, MyProtocol, MyProtocolAM
+    from .protocol_bcst import send_request, MyProtocol, MyProtocolAM
 elif PROTO_SEND_TO == SEND_TO_ORCHESTRATOR:
-    from protocol_orch import send_request, MyProtocol, MyProtocolAM
+    from .protocol_orch import send_request, MyProtocol, MyProtocolAM
 
 
 if PROTO_SEND_TO in (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR):

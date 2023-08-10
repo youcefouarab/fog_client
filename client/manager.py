@@ -6,11 +6,10 @@ from socket import socket, AF_INET, AF_PACKET, SOCK_DGRAM, gethostname
 from re import findall
 from uuid import getnode
 
-from meta import SingletonMeta
 from model import Node, NodeType, Interface
 from consts import MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS
 from logger import console, file
-from utils import all_exit
+from utils import SingletonMeta, all_exit
 
 
 class Manager(metaclass=SingletonMeta):
@@ -93,6 +92,10 @@ class Manager(metaclass=SingletonMeta):
             self._build(**kwargs)
 
         if mode == MODE_CLIENT or mode == MODE_RESOURCE:
+            from resources import MY_IFACE, THRESHOLD
+            self.node.main_interface = MY_IFACE
+            self.node.threshold = THRESHOLD
+
             _code = [0, 0]
             console.info('Connecting')
             while not self._connected:
@@ -176,13 +179,6 @@ class Manager(metaclass=SingletonMeta):
             type = NodeType(NodeType.SERVER)
         self.node = Node(id, True, type, label)
 
-        from network import MY_IFACE
-        self.node.main_interface = MY_IFACE
-        from common import IS_RESOURCE
-        if IS_RESOURCE:
-            from simulator import THRESHOLD
-            self.node.threshold = THRESHOLD
-
         for name, snics in net_if_addrs().items():
             if name != 'lo':
                 interface = Interface(name)
@@ -223,40 +219,31 @@ class Manager(metaclass=SingletonMeta):
         udp_client.close()
 
     def _update_specs(self):
-        from simulator import MONITOR, MONITOR_PERIOD, SIM_ON, get_resources
+        from resources import MEASURES, MONITOR_PERIOD, get_resources
         from api import add_node, update_node_specs
 
-        MEASURES = MONITOR.measures
-
         # constant measures
-        if self._mode == MODE_RESOURCE:
-            if SIM_ON:
-                from simulator import CPU, RAM, DISK
-                self.node.set_cpu_count(CPU)
-                self.node.set_memory_total(RAM)
-                self.node.set_disk_total(DISK)
-            else:
-                self.node.set_cpu_count(MEASURES['cpu_count'])
-                self.node.set_memory_total(MEASURES['memory_total'])
-                self.node.set_disk_total(MEASURES['disk_total'])
+        from resources import CPU, RAM, DISK
+        self.node.set_cpu_count(CPU)
+        self.node.set_memory_total(RAM)
+        self.node.set_disk_total(DISK)
 
         _code = [0, 0]
         while self._connected:
             sleep(MONITOR_PERIOD)
             # current resources are gotten from simulator
-            if self._mode == MODE_RESOURCE:
-                cpu, ram, disk = get_resources(quiet=True)
-                self.node.set_cpu_free(cpu)
-                self.node.set_memory_free(ram)
-                self.node.set_disk_free(disk)
+            cpu, ram, disk = get_resources(quiet=True)
+            self.node.set_cpu_free(cpu)
+            self.node.set_memory_free(ram)
+            self.node.set_disk_free(disk)
             # other stats are gotten from monitor
             for name, iface in list(self.node.interfaces.items()):
-                M = MEASURES.get(name, {})
-                iface.set_capacity(M.get('capacity', 0))
-                iface.set_bandwidth_up(M.get('bandwidth_up', 0))
-                iface.set_bandwidth_down(M.get('bandwidth_down', 0))
-                iface.set_tx_packets(M.get('tx_packets', 0))
-                iface.set_rx_packets(M.get('rx_packets', 0))
+                IM = MEASURES.get(name, {})
+                iface.set_capacity(IM.get('capacity', 0))
+                iface.set_bandwidth_up(IM.get('bandwidth_up', 0))
+                iface.set_bandwidth_down(IM.get('bandwidth_down', 0))
+                iface.set_tx_packets(IM.get('tx_packets', 0))
+                iface.set_rx_packets(IM.get('rx_packets', 0))
 
             updated, *code = update_node_specs(self.node)
             if updated:

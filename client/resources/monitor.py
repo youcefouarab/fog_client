@@ -5,9 +5,8 @@ from psutil import net_if_stats, net_io_counters
 from psutil import cpu_count, cpu_percent, virtual_memory, disk_usage
 from socket import socket, AF_INET, SOCK_STREAM
 
-from meta import SingletonMeta
 from consts import ROOT_PATH
-from utils import get_ip
+from utils import SingletonMeta, get_ip
 
 
 IS_CONTAINER = getenv('IS_CONTAINER', False)
@@ -83,6 +82,7 @@ class Monitor(metaclass=SingletonMeta):
         self.ping_timeout = ping_timeout
 
         self._run = False
+        self._cpu_period = 0.1
 
     def start(self):
         '''
@@ -131,8 +131,8 @@ class Monitor(metaclass=SingletonMeta):
             else:
                 cpus = cpu_count()
                 self.measures['cpu_count'] = cpus
-                self.measures['cpu_free'] = (cpus
-                                             - sum(cpu_percent(percpu=True)) / 100)
+                self.measures['cpu_free'] = cpus - sum(
+                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100
                 mem = virtual_memory()
                 self.measures['memory_total'] = mem.total / MEBI  # in MiB
                 self.measures['memory_free'] = mem.available / MEBI  # in MiB
@@ -146,7 +146,7 @@ class Monitor(metaclass=SingletonMeta):
                     # use thread so it's asynchronous (in case of timeout)
                     Thread(target=self._get_delay, args=(iface,)).start()
             '''
-            sleep(self.monitor_period)
+            sleep(self._cpu_period)
             if IS_CONTAINER:
                 # get CPU usage again
                 percpu_2 = open(
@@ -155,8 +155,9 @@ class Monitor(metaclass=SingletonMeta):
                 for i, cpu in enumerate(percpu):
                     if cpu != '\n':
                         cpu_usage += ((float(percpu_2[i]) - float(cpu))
-                                      / (self.monitor_period / NANO))
+                                      / (self._cpu_period / NANO))
                 self.measures['cpu_free'] = cpus - cpu_usage
+            sleep(self.monitor_period - self._cpu_period)
             # get network I/O stats on each interface again
             io_2 = net_io_counters(pernic=True)
             # get network interfaces stats

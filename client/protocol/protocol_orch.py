@@ -35,13 +35,11 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
                        StrField, IntField, ConditionalField, AnsweringMachine,
                        bind_layers, send, sendp, srp1, sr1, Ether, IP)
 
-from simulator import (check_resources, reserve_resources, free_resources,
-                       execute)
+from resources import (check_resources, reserve_resources, free_resources,
+                       execute, IS_RESOURCE, MY_IFACE, MY_IP)
 from model import Request
 from logger import console, file
 from utils import all_exit
-from network import MY_IFACE, MY_IP
-from common import IS_RESOURCE
 from settings import *
 from consts import *
 
@@ -548,7 +546,7 @@ def send_request(cos_id: int, data: bytes):
                         req.result = dres.data
                         attempt.dres_at = req.dres_at
                         attempt.state = DRES
-                        console.info('Recv data exchange response from %s', 
+                        console.info('Recv data exchange response from %s',
                                      req.host)
                         dres[MyProtocol].show()
 

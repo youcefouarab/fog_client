@@ -160,7 +160,7 @@ def _ryu_add_node(node: Node):
         'type': node.type.value,
         'label': node.label,
         'main_interface': node.main_interface,
-        'threshold': node.threshold,
+        'threshold': float(node.threshold),
         'interfaces': [{
             'name': iface.name,
             'num': iface.num,
@@ -176,27 +176,27 @@ def _ryu_delete_node(node: Node):
 
 def _ryu_update_node_specs(node: Node):
     return _ryu_request('put', '/node_specs/' + str(node.id), {
-        'cpu_count': node.get_cpu_count(),
-        'cpu_free': node.get_cpu_free(),
-        'memory_total': node.get_memory_total(),
-        'memory_free': node.get_memory_free(),
-        'disk_total': node.get_disk_total(),
-        'disk_free': node.get_disk_free(),
-        'timestamp': node.get_timestamp(),
+        'cpu_count': int(node.get_cpu_count()),
+        'cpu_free': float(node.get_cpu_free()),
+        'memory_total': float(node.get_memory_total()),
+        'memory_free': float(node.get_memory_free()),
+        'disk_total': float(node.get_disk_total()),
+        'disk_free': float(node.get_disk_free()),
+        'timestamp': float(node.get_timestamp()),
         'interfaces': [{
             'name': iface.name,
-            'capacity': iface.get_capacity(),
-            'bandwidth_up': iface.get_bandwidth_up(),
-            'bandwidth_down': iface.get_bandwidth_down(),
-            'tx_packets': iface.get_tx_packets(),
-            'rx_packets': iface.get_rx_packets(),
-            'timestamp': iface.get_timestamp()
+            'capacity': float(iface.get_capacity()),
+            'bandwidth_up': float(iface.get_bandwidth_up()),
+            'bandwidth_down': float(iface.get_bandwidth_down()),
+            'tx_packets': int(iface.get_tx_packets()),
+            'rx_packets': int(iface.get_rx_packets()),
+            'timestamp': float(iface.get_timestamp())
         } for iface in list(node.interfaces.values())]
     })
 
 
 def _ryu_add_request(req: Request):
-    from network import MY_IP
+    from resources import MY_IP
     return _ryu_request('post', '/request', {
         'id': req.id,
         'src': MY_IP,
