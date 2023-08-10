@@ -314,7 +314,7 @@ def _execute():
             file.exception(e.__class__.__name__)
 
 
-Thread(target=_execute).start()
+Thread(target=_execute, daemon=True).start()
 
 
 # encode object as table row

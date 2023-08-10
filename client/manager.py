@@ -109,8 +109,8 @@ class Manager(metaclass=SingletonMeta):
                         self._connected = True
                         console.info('Done')
                         console.info('Node added successfully')
-                        Thread(target=self._udp_connect).start()
-                        Thread(target=self._update_specs).start()
+                        Thread(target=self._udp_connect, daemon=True).start()
+                        Thread(target=self._update_specs, daemon=True).start()
 
                     else:
                         file.error(code)
@@ -121,7 +121,7 @@ class Manager(metaclass=SingletonMeta):
 
         else:
             self._connected = True
-            Thread(target=self._update_specs).start()
+            Thread(target=self._update_specs, daemon=True).start()
 
         return True
 

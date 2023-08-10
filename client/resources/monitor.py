@@ -90,7 +90,7 @@ class Monitor(metaclass=SingletonMeta):
         '''
         if not self._run:
             self._run = True
-            Thread(target=self._start).start()
+            Thread(target=self._start, daemon=True).start()
 
     def stop(self):
         '''
@@ -144,7 +144,7 @@ class Monitor(metaclass=SingletonMeta):
                 if iface != 'lo':
                     # delay
                     # use thread so it's asynchronous (in case of timeout)
-                    Thread(target=self._get_delay, args=(iface,)).start()
+                    Thread(target=self._get_delay, args=(iface,), daemon=True).start()
             '''
             sleep(self._cpu_period)
             if IS_CONTAINER:

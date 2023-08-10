@@ -44,4 +44,4 @@ def netapp_cli(mode: str, send_request, cos_names: dict):
             else:
                 Thread(target=_send_request,
                        args=(send_request, cos_names,
-                             cos_id, b'data + program')).start()
+                             cos_id, b'data + program'), daemon=True).start()

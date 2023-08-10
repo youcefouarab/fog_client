@@ -214,7 +214,7 @@ if __name__ == '__main__':
 
             # start gui
             app.logger.disabled = True
-            Thread(target=app.run, args=('0.0.0.0',)).start()
+            Thread(target=app.run, args=('0.0.0.0',), daemon=True).start()
             console.info('GUI started at http://' + MY_IP + ':8050')
 
             # show host resources

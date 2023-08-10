@@ -249,7 +249,7 @@ class MyProtocolAM(AnsweringMachine):
             # if resources reserved
             if _req.state == RRES:
                 Thread(target=self._respond_resources,
-                       args=(my_proto, ip_src, _req)).start()
+                       args=(my_proto, ip_src, _req), daemon=True).start()
             return
 
         # consumer receives late resource reservation response
@@ -299,7 +299,7 @@ class MyProtocolAM(AnsweringMachine):
             # new execution
             if _req.state == RRES:
                 th = Thread(target=self._respond_data,
-                            args=(my_proto, ip_src, _req))
+                            args=(my_proto, ip_src, _req), daemon=True)
                 _req._thread = th
                 th.start()
             return
@@ -567,7 +567,7 @@ def send_request(cos_id: int, data: bytes):
                                 send(IP(dst=req.host)
                                      / MyProtocol(state=DACK, req_id=req_id),
                                      verbose=0, iface=MY_IFACE)
-                            Thread(target=save_req, args=(req,)).start()
+                            Thread(target=save_req, args=(req,), daemon=True).start()
                             return req.result
                         elif not req.dres_at:
                             console.info('No data')
@@ -585,7 +585,7 @@ def send_request(cos_id: int, data: bytes):
         req.state = FAIL
     if PROTO_VERBOSE:
         print(req)
-    Thread(target=save_req, args=(req,)).start()
+    Thread(target=save_req, args=(req,), daemon=True).start()
     # if late dres
     if req.dres_at:
         return req.result
