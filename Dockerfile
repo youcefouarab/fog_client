@@ -5,3 +5,4 @@ RUN apt-get update \
 WORKDIR /fog_client
 COPY . .
 RUN pip install -r requirements.txt
+ENV IS_CONTAINER yes
