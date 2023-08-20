@@ -1,7 +1,13 @@
 from logging import getLogger, StreamHandler, FileHandler, Formatter, DEBUG
+from os import makedirs
 
 from consts import ROOT_PATH
 
+
+try:
+    makedirs(ROOT_PATH + '/data', mode=0o777)
+except FileExistsError:
+    pass
 
 LOG_FILE = ROOT_PATH + '/data/app.log'
 FILE_LEVEL = DEBUG

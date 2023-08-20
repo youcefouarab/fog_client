@@ -25,7 +25,7 @@
 # method is called, so only import after
 
 
-from os import getenv
+from os import getenv, makedirs
 from queue import Queue
 from threading import Thread, Event
 from sqlite3 import connect
@@ -47,6 +47,10 @@ except:
     all_exit()
 
 # database file
+try:
+    makedirs(ROOT_PATH + '/data', mode=0o777)
+except FileExistsError:
+    pass
 DB_PATH = ROOT_PATH + '/data/database.' + MY_IP + '.db'
 
 # table names
