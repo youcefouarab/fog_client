@@ -4,7 +4,7 @@
 
 
 from os import getenv
-from ipaddress import ip_address
+from ipaddress import ip_network
 
 from utils import get_iface, get_ip
 
@@ -18,7 +18,7 @@ if not NETWORK_ADDRESS:
     BROADCAST_IP = '255.255.255.255'
 else:
     try:
-        BROADCAST_IP = ip_address(NETWORK_ADDRESS).broadcast_address.exploded
+        BROADCAST_IP = ip_network(NETWORK_ADDRESS).broadcast_address.exploded
     except:
         # WARNING
         # NETWORK:ADDRESS parameter invalid in received configuration
