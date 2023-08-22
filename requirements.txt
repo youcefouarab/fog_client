@@ -3,3 +3,4 @@ requests
 scapy==2.5.0
 dash==2.8.1
 pandas==1.5.1
+netaddr==0.8.0

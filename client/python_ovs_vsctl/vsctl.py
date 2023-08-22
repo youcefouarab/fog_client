@@ -26,8 +26,8 @@ from os import path
 
 import netaddr
 
-from ovs_vsctl import exception
-from ovs_vsctl import utils
+from .utils import run as run_util
+from .exception import VSCtlCmdExecError, VSCtlCmdParseError
 
 
 #INSTALLED_OVS_VSCTL = find_executable("ovs-vsctl")
@@ -139,16 +139,16 @@ class VSCtl():
         args.extend(shlex.split(command))
 
         # Executes command.
-        process = utils.run(args)
+        process = run_util(args)
         if process.returncode != 0:
-            raise exception.VSCtlCmdExecError(process.stderr.read())
+            raise VSCtlCmdExecError(process.stderr.read())
 
         # If parser is specified, applies parser and returns it.
         if parser:
             try:
                 return parser(process.stdout.read())
             except Exception as e:  # pylint: disable=invalid-name
-                raise exception.VSCtlCmdParseError(e)
+                raise VSCtlCmdParseError(e)
 
         # Returns outputs in str type.
         return process

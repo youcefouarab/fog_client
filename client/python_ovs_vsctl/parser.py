@@ -19,7 +19,7 @@ Parsers for 'ovs-vsctl' command outputs.
 
 import json
 
-from ovs_vsctl.utils import is_valid_uuid
+from .utils import is_valid_uuid
 
 
 def line_parser(buf):
