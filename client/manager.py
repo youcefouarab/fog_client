@@ -6,6 +6,8 @@ from socket import socket, AF_INET, AF_PACKET, SOCK_DGRAM, gethostname
 from re import findall
 from uuid import getnode
 
+from python_ovs_vsctl import (VSCtl, list_cmd_parser, VSCtlCmdExecError,
+                              VSCtlCmdParseError)
 from model import Node, NodeType, Interface
 from consts import MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS
 from logger import console, file
@@ -121,7 +123,7 @@ class Manager(metaclass=SingletonMeta):
 
         else:
             self._connected = True
-            Thread(target=self._update_specs, daemon=True).start()
+            Thread(target=self._update_specs).start()
 
         return True
 
@@ -179,6 +181,21 @@ class Manager(metaclass=SingletonMeta):
             type = NodeType(NodeType.SERVER)
         self.node = Node(id, True, type, label)
 
+        if self._mode == MODE_SWITCH:
+            try:
+                # get ports from OVS
+                vsctl = VSCtl()
+                for record in vsctl.run('list interface',
+                                        parser=list_cmd_parser):
+                    # get associated "physical" interface
+                    name = record.__dict__.get('name', None)
+                    if name:
+                        self.node.interfaces[name] = Interface(name)
+            except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
+                console.error('OVS ports not added due to %s',
+                              e.__class__.__name__)
+                file.exception('OVS ports not added due to %s',
+                               e.__class__.__name__)
         for name, snics in net_if_addrs().items():
             if name != 'lo':
                 interface = Interface(name)
@@ -239,11 +256,11 @@ class Manager(metaclass=SingletonMeta):
             # other stats are gotten from monitor
             for name, iface in list(self.node.interfaces.items()):
                 IM = MEASURES.get(name, {})
-                iface.set_capacity(IM.get('capacity', 0))
-                iface.set_bandwidth_up(IM.get('bandwidth_up', 0))
-                iface.set_bandwidth_down(IM.get('bandwidth_down', 0))
-                iface.set_tx_packets(IM.get('tx_packets', 0))
-                iface.set_rx_packets(IM.get('rx_packets', 0))
+                iface.set_capacity(IM.get('capacity', None))
+                iface.set_bandwidth_up(IM.get('bandwidth_up', None))
+                iface.set_bandwidth_down(IM.get('bandwidth_down', None))
+                iface.set_tx_packets(IM.get('tx_packets', None))
+                iface.set_rx_packets(IM.get('rx_packets', None))
 
             updated, *code = update_node_specs(self.node)
             if updated:

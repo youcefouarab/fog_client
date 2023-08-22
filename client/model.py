@@ -185,9 +185,9 @@ class InterfaceSpecs(Model):
         timestamp: Default is time of update.
     '''
 
-    def __init__(self, capacity: float = 0, bandwidth_up: float = 0,
-                 bandwidth_down: float = 0, tx_packets: int = 0,
-                 rx_packets: int = 0, timestamp: float = 0):
+    def __init__(self, capacity: float = 0.0, bandwidth_up: float = 0.0,
+                 bandwidth_down: float = 0.0, tx_packets: int = 0,
+                 rx_packets: int = 0, timestamp: float = 0.0):
         self.capacity = capacity
         self.bandwidth_up = bandwidth_up
         self.bandwidth_down = bandwidth_down
@@ -242,21 +242,21 @@ class Interface(Model):
     def get_capacity(self):
         return self.specs.capacity
 
-    def set_capacity(self, capacity: float = 0):
+    def set_capacity(self, capacity: float = 0.0):
         self.specs.capacity = capacity
         self.set_timestamp()
 
     def get_bandwidth_up(self):
         return self.specs.bandwidth_up
 
-    def set_bandwidth_up(self, bandwidth_up: float = 0):
+    def set_bandwidth_up(self, bandwidth_up: float = 0.0):
         self.specs.bandwidth_up = bandwidth_up
         self.set_timestamp()
 
     def get_bandwidth_down(self):
         return self.specs.bandwidth_down
 
-    def set_bandwidth_down(self, bandwidth_down: float = 0):
+    def set_bandwidth_down(self, bandwidth_down: float = 0.0):
         self.specs.bandwidth_down = bandwidth_down
         self.set_timestamp()
 
@@ -277,7 +277,7 @@ class Interface(Model):
     def get_timestamp(self):
         return self.specs.timestamp
 
-    def set_timestamp(self, timestamp: float = 0):
+    def set_timestamp(self, timestamp: float = 0.0):
         self.specs.timestamp = timestamp if timestamp else time()
 
 
@@ -329,10 +329,10 @@ class NodeSpecs(Model):
         timestamp: Default is time of update.
     '''
 
-    def __init__(self, cpu_count: int = 0, cpu_free: float = 0,
-                 memory_total: float = 0, memory_free: float = 0,
-                 disk_total: float = 0, disk_free: float = 0,
-                 timestamp: float = 0):
+    def __init__(self, cpu_count: int = 0, cpu_free: float = 0.0,
+                 memory_total: float = 0.0, memory_free: float = 0.0,
+                 disk_total: float = 0.0, disk_free: float = 0.0,
+                 timestamp: float = 0.0):
         self.cpu_count = cpu_count
         self.cpu_free = cpu_free
         self.memory_total = memory_total
@@ -373,7 +373,7 @@ class Node(Model):
         self.interfaces = interfaces if interfaces else {}
         self.main_interface = None  # string (name)
         self.specs = specs if specs else NodeSpecs()
-        self.threshold = 1  # float (gross value; to get percentage, multiply
+        self.threshold = 1.0  # float (gross value; to get percentage, multiply
         # by 100)
 
     def as_dict(self, flat: bool = False):
@@ -406,42 +406,42 @@ class Node(Model):
     def get_cpu_free(self):
         return self.specs.cpu_free
 
-    def set_cpu_free(self, cpu_free: int = 0):
+    def set_cpu_free(self, cpu_free: float = 0.0):
         self.specs.cpu_free = cpu_free
         self.set_timestamp()
 
     def get_memory_total(self):
         return self.specs.memory_total
 
-    def set_memory_total(self, memory_total: float = 0):
+    def set_memory_total(self, memory_total: float = 0.0):
         self.specs.memory_total = memory_total
         self.set_timestamp()
 
     def get_memory_free(self):
         return self.specs.memory_free
 
-    def set_memory_free(self, memory_free: float = 0):
+    def set_memory_free(self, memory_free: float = 0.0):
         self.specs.memory_free = memory_free
         self.set_timestamp()
 
     def get_disk_total(self):
         return self.specs.disk_total
 
-    def set_disk_total(self, disk_total: float = 0):
+    def set_disk_total(self, disk_total: float = 0.0):
         self.specs.disk_total = disk_total
         self.set_timestamp()
 
     def get_disk_free(self):
         return self.specs.disk_free
 
-    def set_disk_free(self, disk_free: float = 0):
+    def set_disk_free(self, disk_free: float = 0.0):
         self.specs.disk_free = disk_free
         self.set_timestamp()
 
     def get_timestamp(self):
         return self.specs.timestamp
 
-    def set_timestamp(self, timestamp: float = 0):
+    def set_timestamp(self, timestamp: float = 0.0):
         self.specs.timestamp = timestamp if timestamp else time()
 
 
@@ -476,15 +476,15 @@ class CoSSpecs(Model):
 
     def __init__(self,
                  max_response_time: float = float('inf'),
-                 min_concurrent_users: float = 0,
-                 min_requests_per_second: float = 0,
-                 min_bandwidth: float = 0,
+                 min_concurrent_users: float = 0.0,
+                 min_requests_per_second: float = 0.0,
+                 min_bandwidth: float = 0.0,
                  max_delay: float = float('inf'),
                  max_jitter: float = float('inf'),
-                 max_loss_rate: float = 1,
-                 min_cpu: float = 0,
-                 min_ram: float = 0,
-                 min_disk: float = 0):
+                 max_loss_rate: float = 1.0,
+                 min_cpu: float = 0.0,
+                 min_ram: float = 0.0,
+                 min_disk: float = 0.0):
         self.max_response_time = max_response_time
         self.min_concurrent_users = min_concurrent_users
         self.min_requests_per_second = min_requests_per_second
@@ -542,19 +542,19 @@ class CoS(Model):
     def get_min_concurrent_users(self):
         return self.specs.min_concurrent_users
 
-    def set_min_concurrent_users(self, min_concurrent_users: float = 0):
+    def set_min_concurrent_users(self, min_concurrent_users: float = 0.0):
         self.specs.min_concurrent_users = min_concurrent_users
 
     def get_min_requests_per_second(self):
         return self.specs.min_requests_per_second
 
-    def set_min_requests_per_second(self, min_requests_per_second: float = 0):
+    def set_min_requests_per_second(self, min_requests_per_second: float = 0.0):
         self.specs.min_requests_per_second = min_requests_per_second
 
     def get_min_bandwidth(self):
         return self.specs.min_bandwidth
 
-    def set_min_bandwidth(self, bandwidth: float = 0):
+    def set_min_bandwidth(self, bandwidth: float = 0.0):
         self.specs.min_bandwidth = bandwidth
 
     def get_max_delay(self):
@@ -572,25 +572,25 @@ class CoS(Model):
     def get_max_loss_rate(self):
         return self.specs.max_loss_rate
 
-    def set_max_loss_rate(self, max_loss_rate: float = 1):
+    def set_max_loss_rate(self, max_loss_rate: float = 1.0):
         self.specs.max_loss_rate = max_loss_rate
 
     def get_min_cpu(self):
         return self.specs.min_cpu
 
-    def set_min_cpu(self, cpu: float = 0):
+    def set_min_cpu(self, cpu: float = 0.0):
         self.specs.min_cpu = cpu
 
     def get_min_ram(self):
         return self.specs.min_ram
 
-    def set_min_ram(self, ram: float = 0):
+    def set_min_ram(self, ram: float = 0.0):
         self.specs.min_ram = ram
 
     def get_min_disk(self):
         return self.specs.min_disk
 
-    def set_min_disk(self, disk: float = 0):
+    def set_min_disk(self, disk: float = 0.0):
         self.specs.min_disk = disk
 
 

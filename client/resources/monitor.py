@@ -1,14 +1,17 @@
 from os import getenv
 from threading import Thread
-from time import monotonic, sleep
+from time import sleep
 from psutil import net_if_stats, net_io_counters
 from psutil import cpu_count, cpu_percent, virtual_memory, disk_usage
-from socket import socket, AF_INET, SOCK_STREAM
 
+from python_ovs_vsctl import (VSCtl, list_cmd_parser, VSCtlCmdExecError,
+                              VSCtlCmdParseError)
+from logger import console, file
 from consts import ROOT_PATH
-from utils import SingletonMeta, get_ip
+from utils import SingletonMeta
 
 
+IS_SWITCH = getenv('IS_SWITCH', False)
 IS_CONTAINER = getenv('IS_CONTAINER', False)
 CGROUP_PATH = '/sys/fs/cgroup'
 
@@ -25,7 +28,7 @@ class Monitor(metaclass=SingletonMeta):
         Singleton class for monitoring the state of resources of the node it's 
         running on (total and free CPUs, total and free memory size, total and 
         free disk size, as well as total capacity, free egress and ingress 
-        bandwidth, Tx and Rx packets, and delay on each network interface).
+        bandwidth, Tx and Rx packets on each network interface).
 
         If node is regular (physical, VM, etc.), the resources are gotten using
         the 'psutil' library. If it is a container (if the environment variable 
@@ -35,15 +38,6 @@ class Monitor(metaclass=SingletonMeta):
         Attributes:
         -----------
         monitor_period: Time to wait before each measure. Default is 1s.
-
-        ping_host_ip: Destination IP address to which delay is calculated, 
-        default is 8.8.8.8.
-
-        ping_host_port: Destination port number to which delay is calculated, 
-        default is 443.
-
-        ping_timeout: Time to wait before declaring delay as infinite. Default 
-        is 4s.
 
         measures: Dict containing the most recent measures in the following 
         structure: 
@@ -59,7 +53,6 @@ class Monitor(metaclass=SingletonMeta):
         \t\t    'capacity': <float>, # in Mbit/s\n
         \t\t    'bandwidth_up': <float>, # in Mbit/s\n
         \t\t    'bandwidth_down': <float>, # in Mbit/s\n
-        \t\t    'delay': <float>, # in s\n
         \t\t    'tx_packets': <int>,\n
         \t\t    'rx_packets': <int>,\n
         \t  },\n
@@ -72,14 +65,9 @@ class Monitor(metaclass=SingletonMeta):
         stop(): Stop monitoring thread.
     '''
 
-    def __init__(self, monitor_period: float = 1,
-                 ping_host_ip: str = '8.8.8.8', ping_host_port: int = 443,
-                 ping_timeout: float = 4):
+    def __init__(self, monitor_period: float = 1):
         self.measures = {}
         self.monitor_period = monitor_period
-        self.ping_host_ip = ping_host_ip
-        self.ping_host_port = ping_host_port
-        self.ping_timeout = ping_timeout
 
         self._run = False
         self._cpu_period = 0.1
@@ -101,64 +89,101 @@ class Monitor(metaclass=SingletonMeta):
     def set_monitor_period(self, period: float = 1):
         self.monitor_period = period
 
-    def set_ping_host(self, ip: str = '8.8.8.8', port: int = 443):
-        self.ping_host_ip = ip
-        self.ping_host_port = port
-
-    def set_ping_timeout(self, timeout: float = 4):
-        self.ping_timeout = timeout
-
     def _start(self):
+        _ovs_ports = []
+        if IS_SWITCH:
+            try:
+                # get ports from OVS
+                vsctl = VSCtl()
+                stats = net_if_stats()
+                for record in vsctl.run('list interface',
+                                        parser=list_cmd_parser):
+                    port = record.__dict__
+                    name = port.get('name', None)
+                    if name:
+                        _ovs_ports.append(name)
+                        # get associated "physical" interface
+                        iface = port.get(
+                            'status', {}).get('tunnel_egress_iface', None)
+                        if iface:
+                            # get missing stats
+                            self.measures.setdefault(name, {})
+                            self.measures[name]['capacity'] = float(
+                                stats[iface].speed)
+                            # other stats are already collected by server
+            except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
+                console.error('Couldn\'t get OVS ports due to %s',
+                              e.__class__.__name__)
+                file.exception('Couldn\'t get OVS ports due to %s',
+                               e.__class__.__name__)
         if IS_CONTAINER:
             # get usage of each CPU (in nanoseconds)
-            percpu = open(
-                CGROUP_PATH + '/cpu/cpuacct.usage_percpu').read().split(' ')
+            try:
+                percpu = open(
+                    CGROUP_PATH + '/cpu/cpuacct.usage_percpu').read().split(' ')
+                cpus = len(percpu) - 1  # don't count '\n'
+            except Exception as e:
+                cpus = cpu_count()
+                console.error('Unable to read Docker control group for CPU '
+                              '(%s). Switching to psutil',
+                              e.__class__.__name__)
+                file.exception('Unable to read Docker control group for CPU')
+            self.measures['cpu_count'] = int(cpus)
+            try:
+                memory_total = float(open(
+                    CGROUP_PATH + '/memory/memory.limit_in_bytes').read())
+            except Exception as e:
+                memory_total = virtual_memory().total
+                console.error('Unable to read Docker control group for memory '
+                              '(%s). Switching to psutil',
+                              e.__class__.__name__)
+                file.exception(
+                    'Unable to read Docker control group for memory')
+            self.measures['memory_total'] = float(memory_total / MEBI)
+        else:
+            cpus = cpu_count()
+            self.measures['cpu_count'] = int(cpus)
+            self.measures['memory_total'] = float(virtual_memory().total/MEBI)
+        self.measures['disk_total'] = float(disk_usage(ROOT_PATH).total / GIBI)
         # get network I/O stats on each interface
         # by setting pernic to True
         io = net_io_counters(pernic=True)
         while self._run:
             # node specs
             if IS_CONTAINER:
-                cpus = len(percpu) - 1  # don't count '\n'
-                self.measures['cpu_count'] = cpus
-                memory_total = float(open(
-                    CGROUP_PATH + '/memory/memory.limit_in_bytes').read())
-                self.measures['memory_total'] = memory_total / MEBI  # in MiB
-                memory_usage = float(open(
-                    CGROUP_PATH + '/memory/memory.usage_in_bytes').read())
-                self.measures['memory_free'] = (
-                    memory_total - memory_usage) / MEBI  # in MiB
+                try:
+                    self.measures['memory_free'] = float(memory_total - float(open(
+                        CGROUP_PATH + '/memory/memory.usage_in_bytes').read())) / MEBI
+                except:
+                    file.exception('')
+                    self.measures['memory_free'] = float(
+                        virtual_memory().available / MEBI)
             else:
-                cpus = cpu_count()
-                self.measures['cpu_count'] = cpus
-                self.measures['cpu_free'] = cpus - sum(
-                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100
-                mem = virtual_memory()
-                self.measures['memory_total'] = mem.total / MEBI  # in MiB
-                self.measures['memory_free'] = mem.available / MEBI  # in MiB
-            disk = disk_usage(ROOT_PATH)
-            self.measures['disk_total'] = disk.total / GIBI  # in GiB
-            self.measures['disk_free'] = disk.free / GIBI  # in GiB
-            '''
-            for iface in io:
-                if iface != 'lo':
-                    # delay
-                    # use thread so it's asynchronous (in case of timeout)
-                    Thread(target=self._get_delay, args=(iface,), daemon=True).start()
-            '''
+                self.measures['cpu_free'] = float(cpus - sum(
+                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
+                self.measures['memory_free'] = float(
+                    virtual_memory().available / MEBI)
+            self.measures['disk_free'] = float(disk_usage(ROOT_PATH).free/GIBI)
             sleep(self._cpu_period)
             if IS_CONTAINER:
-                # get CPU usage again
-                percpu_2 = open(
-                    CGROUP_PATH + '/cpu/cpuacct.usage_percpu').read().split(' ')
-                cpu_usage = 0
-                for i, cpu in enumerate(percpu):
-                    if cpu != '\n':
-                        cpu_usage += ((float(percpu_2[i]) - float(cpu))
-                                      / (self._cpu_period / NANO))
-                self.measures['cpu_free'] = cpus - cpu_usage
+                # get CPU usage again after sleep
+                try:
+                    percpu_2 = open(
+                        CGROUP_PATH + '/cpu/cpuacct.usage_percpu').read().split(' ')
+                    cpu_usage = 0
+                    for i, cpu in enumerate(percpu):
+                        if cpu != '\n':
+                            cpu_usage += ((float(percpu_2[i]) - float(cpu)) /
+                                          (self._cpu_period / NANO))
+                    self.measures['cpu_free'] = float(cpus - cpu_usage)
+                    # update CPU usage for next iteration
+                    percpu = percpu_2
+                except:
+                    file.exception('')
+                    self.measures['cpu_free'] = float(cpus - sum(
+                        cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
             sleep(self.monitor_period - self._cpu_period)
-            # get network I/O stats on each interface again
+            # get network I/O stats on each interface again after period
             io_2 = net_io_counters(pernic=True)
             # get network interfaces stats
             stats = net_if_stats()
@@ -170,64 +195,24 @@ class Monitor(metaclass=SingletonMeta):
                     prev = io[iface]
                     next = io_2[iface]
                     up_bytes = next.bytes_sent - prev.bytes_sent
-                    up_speed = up_bytes * BYTE / self.monitor_period  # in bits/s
+                    up_speed = up_bytes * BYTE / self.monitor_period
                     down_bytes = next.bytes_recv - prev.bytes_recv
-                    down_speed = down_bytes * BYTE / self.monitor_period  # in bits/s
+                    down_speed = down_bytes * BYTE / self.monitor_period
                     #  get max speed (capacity)
-                    max_speed = stats[iface].speed * MEGA  # in bits/s
+                    max_speed = stats[iface].speed * MEGA
                     # calculate free bandwidth
-                    bandwidth_up = (max_speed - up_speed) / MEGA  # in Mbits/s
-                    bandwidth_down = (max_speed - down_speed) / \
-                        MEGA  # in Mbits/s
+                    bandwidth_up = (max_speed - up_speed) / MEGA
+                    bandwidth_down = (max_speed - down_speed) / MEGA
                     #  save bandwidth measurement
                     self.measures.setdefault(iface, {})
-                    # in Mbits/s
-                    self.measures[iface]['capacity'] = max_speed / MEGA
-                    self.measures[iface]['bandwidth_up'] = bandwidth_up
-                    self.measures[iface]['bandwidth_down'] = bandwidth_down
-                    self.measures[iface]['tx_packets'] = next.packets_sent
-                    self.measures[iface]['rx_packets'] = next.packets_recv
-                # if interface is removed during monitor period
-                # remove from measures dict
-                elif iface not in io_2 or iface not in stats:
-                    self.measures.pop(iface, None)
-            if IS_CONTAINER:
-                # update CPU usage for next iteration
-                percpu = percpu_2
+                    self.measures[iface]['capacity'] = float(max_speed / MEGA)
+                    self.measures[iface]['bandwidth_up'] = float(bandwidth_up)
+                    self.measures[iface]['bandwidth_down'] = float(
+                        bandwidth_down)
+                    self.measures[iface]['tx_packets'] = int(next.packets_sent)
+                    self.measures[iface]['rx_packets'] = int(next.packets_recv)
             # update network I/O stats for next iteration
             io = io_2
-
-    def _get_delay(self, via_iface: str):
-        '''
-            Connect to host:port via interface specified by name and calculate 
-            total delay before response.
-
-            If timeout set, connection will be closed after timeout seconds 
-            and delay will be considered infinite.
-        '''
-        with socket(AF_INET, SOCK_STREAM) as s:
-            # bind socket to interface if specified
-            if via_iface:
-                ip = get_ip(interface=via_iface)
-                if ip:
-                    s.bind((ip, 0))
-            # set timeout in case of errors
-            s.settimeout(self.ping_timeout)
-            # start timer
-            t_start = monotonic()
-            # try to connect to host
-            try:
-                s.connect((self.ping_host_ip, self.ping_host_port))
-                # stop timer and calculate delay
-                delay = (monotonic() - t_start)
-            except:
-                # if exception, connection wasn't acheived correctly
-                delay = float('inf')
-            finally:
-                # close connection
-                s.close()
-                self.measures.setdefault(via_iface, {})
-                self.measures[via_iface]['delay'] = delay
 
 
 # for testing

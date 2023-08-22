@@ -172,9 +172,9 @@ except:
 
 # simulation variables of reserved resources
 _reserved = {
-    'cpu': 0,
-    'ram': 0,  # in MB
-    'disk': 0,  # in GB
+    'cpu': 0.0,
+    'ram': 0.0,  # in MB
+    'disk': 0.0,  # in GB
 }
 _reserved_lock = Lock()  # for thread safety
 
@@ -184,7 +184,7 @@ def get_resources(quiet: bool = False, _all: bool = False):
         Returns tuple of free CPU, free RAM and free disk.
     '''
 
-    cpu = ram = disk = 0
+    cpu = ram = disk = 0.0
     if IS_RESOURCE:
         if SIM_ON:
             cpu = CPU - _reserved['cpu']
@@ -288,13 +288,13 @@ def free_resources(req: Request):
     with _reserved_lock:
         _reserved['cpu'] -= req.get_min_cpu()
         if _reserved['cpu'] < 0:
-            _reserved['cpu'] = 0
+            _reserved['cpu'] = 0.0
         _reserved['ram'] -= req.get_min_ram()
         if _reserved['ram'] < 0:
-            _reserved['ram'] = 0
+            _reserved['ram'] = 0.0
         _reserved['disk'] -= req.get_min_disk()
         if _reserved['disk'] < 0:
-            _reserved['disk'] = 0
+            _reserved['disk'] = 0.0
         get_resources()
         return True
 
