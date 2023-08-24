@@ -116,6 +116,7 @@ class Monitor(metaclass=SingletonMeta):
                               e.__class__.__name__)
                 file.exception('Couldn\'t get OVS ports due to %s',
                                e.__class__.__name__)
+        psutil_mem_total = virtual_memory().total
         if IS_CONTAINER:
             # get usage of each CPU (in nanoseconds)
             try:
@@ -132,8 +133,10 @@ class Monitor(metaclass=SingletonMeta):
             try:
                 memory_total = float(open(
                     CGROUP_PATH + '/memory/memory.limit_in_bytes').read())
+                if memory_total > psutil_mem_total:
+                    memory_total = psutil_mem_total
             except Exception as e:
-                memory_total = virtual_memory().total
+                memory_total = psutil_mem_total
                 console.error('Unable to read Docker control group for memory '
                               '(%s). Switching to psutil',
                               e.__class__.__name__)
@@ -143,7 +146,7 @@ class Monitor(metaclass=SingletonMeta):
         else:
             cpus = cpu_count()
             self.measures['cpu_count'] = int(cpus)
-            self.measures['memory_total'] = float(virtual_memory().total/MEBI)
+            self.measures['memory_total'] = float(psutil_mem_total / MEBI)
         self.measures['disk_total'] = float(disk_usage(ROOT_PATH).total / GIBI)
         # get network I/O stats on each interface
         # by setting pernic to True
