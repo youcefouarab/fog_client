@@ -178,8 +178,8 @@ class Monitor(metaclass=SingletonMeta):
                     #  get max speed (capacity)
                     max_speed = stats[iface].speed * MEGA
                     # calculate free bandwidth
-                    bandwidth_up = (max_speed - up_speed) / MEGA
-                    bandwidth_down = (max_speed - down_speed) / MEGA
+                    bandwidth_up = max(0, (max_speed - up_speed) / MEGA)
+                    bandwidth_down = max(0, (max_speed - down_speed) / MEGA)
                     #  save bandwidth measurement
                     self.measures.setdefault(iface, {})
                     self.measures[iface]['capacity'] = float(max_speed / MEGA)
