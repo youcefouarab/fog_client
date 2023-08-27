@@ -90,32 +90,6 @@ class Monitor(metaclass=SingletonMeta):
         self.monitor_period = period
 
     def _start(self):
-        _ovs_ports = []
-        if IS_SWITCH:
-            try:
-                # get ports from OVS
-                vsctl = VSCtl()
-                stats = net_if_stats()
-                for record in vsctl.run('list interface',
-                                        parser=list_cmd_parser):
-                    port = record.__dict__
-                    name = port.get('name', None)
-                    if name:
-                        _ovs_ports.append(name)
-                        # get associated "physical" interface
-                        iface = port.get(
-                            'status', {}).get('tunnel_egress_iface', None)
-                        if iface:
-                            # get missing stats
-                            self.measures.setdefault(name, {})
-                            self.measures[name]['capacity'] = float(
-                                stats[iface].speed)
-                            # other stats are already collected by server
-            except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
-                console.error('Couldn\'t get OVS ports due to %s',
-                              e.__class__.__name__)
-                file.exception('Couldn\'t get OVS ports due to %s',
-                               e.__class__.__name__)
         psutil_mem_total = virtual_memory().total
         if IS_CONTAINER:
             # get usage of each CPU (in nanoseconds)
@@ -216,6 +190,27 @@ class Monitor(metaclass=SingletonMeta):
                     self.measures[iface]['rx_packets'] = int(next.packets_recv)
             # update network I/O stats for next iteration
             io = io_2
+            if IS_SWITCH:
+                try:
+                    # get ports from OVS
+                    vsctl = VSCtl()
+                    records = vsctl.run('list interface',
+                                        parser=list_cmd_parser)
+                    stats = net_if_stats()
+                    for record in records:
+                        port = record.__dict__
+                        name = port.get('name', None)
+                        if name:
+                            # get associated "physical" interface
+                            iface = port.get(
+                                'status', {}).get('tunnel_egress_iface', None)
+                            if iface and iface in self.measures:
+                                self.measures[name] = self.measures[iface]
+                except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
+                    console.error('Couldn\'t get OVS ports due to %s',
+                                  e.__class__.__name__)
+                    file.exception('Couldn\'t get OVS ports due to %s',
+                                   e.__class__.__name__)
 
 
 # for testing
