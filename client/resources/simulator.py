@@ -37,6 +37,7 @@ from random import uniform
 from time import sleep
 
 from .monitor import Monitor
+from common import THRESHOLD, LIMIT, IS_RESOURCE
 from model import Request
 from logger import console, file
 from utils import all_exit
@@ -65,11 +66,6 @@ while ('cpu_count' not in MEASURES
        or 'disk_free' not in MEASURES):
     sleep(0.1)
 
-_is_resource = getenv('IS_RESOURCE', '').upper()
-if _is_resource not in ('TRUE', 'FALSE'):
-    _is_resource = 'FALSE'
-IS_RESOURCE = _is_resource == 'TRUE'
-
 _sim_on = getenv('SIMULATOR_ACTIVE', '').upper()
 if _sim_on not in ('TRUE', 'FALSE'):
     console.warning('SIMULATOR:ACTIVE parameter invalid or missing from '
@@ -83,8 +79,6 @@ SIM_ON = _sim_on == 'TRUE'
 _cpu = 0
 _ram = 0
 _disk = 0
-_limit = 0
-_threshold = 1
 
 if IS_RESOURCE:
     if SIM_ON:
@@ -111,31 +105,9 @@ if IS_RESOURCE:
         _ram = MEASURES['memory_total']
         _disk = MEASURES['disk_total']
 
-    try:
-        _limit = float(getenv('RESOURCE_LIMIT', None))
-        if _limit < 0 or _limit > 100:
-            console.warning('Resource limit argument invalid (must be %). '
-                            'Defaulting to 0%')
-            file.warning('Resource limit argument (%s) invalid', str(_limit))
-            _limit = 0
-    except:
-        console.warning('Resource limit argument invalid or missing. '
-                        'Defaulting to 0%')
-        file.warning('Resource limit argument invalid or missing',
-                     exc_info=True)
-        _limit = 0
-    # limit is the max resource usage (e.g. can't surpass 80%)
-    _limit = _limit / 100
-    # threshold is the complementary of limit
-    # (i.e. the remaining 20% that we can't reserve)
-    _threshold = 1 - _limit
-    # both are gross values (to get percentages, multiply by 100)
-
 CPU = _cpu
 RAM = _ram
 DISK = _disk
-LIMIT = _limit
-THRESHOLD = _threshold
 CPU_THRESHOLD = CPU * THRESHOLD
 RAM_THRESHOLD = RAM * THRESHOLD
 DISK_THRESHOLD = DISK * THRESHOLD

@@ -32,7 +32,7 @@ from sqlite3 import connect
 from csv import writer
 
 from model import Model, CoS, Request, Attempt, Response
-from resources import MY_IP
+from network import MY_IP
 from consts import ROOT_PATH
 from logger import console, file
 from utils import all_exit
@@ -47,10 +47,7 @@ except:
     all_exit()
 
 # database file
-try:
-    makedirs(ROOT_PATH + '/data', mode=0o777)
-except FileExistsError:
-    pass
+makedirs(ROOT_PATH + '/data', mode=0o777, exist_ok=True)
 DB_PATH = ROOT_PATH + '/data/database.' + MY_IP + '.db'
 
 # table names
@@ -293,8 +290,8 @@ class Connection:
                         if isinstance(val, str) and val != 'null':
                             val = '"' + val + '"'
                         vals += str(val) + ','
-                    script += ('insert or ignore into cos(' + cols[:-1] + 
-                                ')values(' + vals[:-1] + ');')
+                    script += ('insert or ignore into cos(' + cols[:-1] +
+                               ')values(' + vals[:-1] + ');')
                 self._connection.executescript(script)
             except:
                 console.error('Could not load CoS from received configuration')

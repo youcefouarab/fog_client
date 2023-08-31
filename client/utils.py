@@ -1,5 +1,5 @@
 from threading import Lock
-from socket import socket, AF_INET, SOCK_DGRAM
+from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 from psutil import net_if_addrs
 from ipaddress import ip_address, ip_network
 from sys import exit as sys_exit
@@ -83,6 +83,21 @@ def get_ip(network: str = None, interface: str = None):
         if addr.family == AF_INET:
             return addr.address
     return get_default_ip()
+
+
+def port_open(ip: str, port: int):
+    '''
+        Returns True if port is listening, False if not.
+    '''
+
+    s = socket()
+    try:
+        s.connect((ip, port))
+        return True
+    except:
+        return False
+    finally:
+        s.close()
 
 
 def all_exit():

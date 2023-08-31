@@ -70,6 +70,8 @@ def _parse_arguments():
                           help='Bridge datapath ID (in hexadecimal).')
     s_parser.add_argument('-s', '--server', metavar='server', required=True,
                           help='Server IP and API port. Format is IP:PORT.')
+    s_parser.add_argument('-p3', '--iperf3', metavar='iperf3', default=None,
+                          help='iPerf3 (client, server, dual).')
     s_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
                           help='Detailed output on the console.')
@@ -81,6 +83,8 @@ def _parse_arguments():
                           help='Custom node ID (for simulations).')
     c_parser.add_argument('-l', '--label', metavar='label', default=None,
                           help='Custom node label (for simulations).')
+    c_parser.add_argument('-p3', '--iperf3', metavar='iperf3', default=None,
+                          help='iPerf3 (client, server, dual).')
     c_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
                           help='Detailed output on the console.')
@@ -101,6 +105,8 @@ def _parse_arguments():
                           help='Size of simulated RAM (in MB).')
     r_parser.add_argument('-d', '--disk', metavar='disk', default=None,
                           help='Size of simulated disk (in GB).')
+    r_parser.add_argument('-p3', '--iperf3', metavar='iperf3', default=None,
+                          help='iPerf3 (client, server, dual).')
     r_parser.add_argument('-v', '--verbose', metavar='verbose', default=False,
                           nargs='?', const=True,
                           help='Detailed output on the console.')
@@ -156,8 +162,8 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
         environ['SERVER_IP'] = ip_address(server_ip).exploded
         environ['SERVER_API_PORT'] = str(int(server_api_port))
     except:
-        console.error('Server format must be IP:PORT (e.g. 127.0.0.1:8080)')
-        file.exception('Server format must be IP:PORT (e.g. 127.0.0.1:8080)')
+        console.error('Server format must be IP:PORT')
+        file.exception('Server format must be IP:PORT')
         all_exit()
 
     if mode == MODE_RESOURCE:
@@ -169,6 +175,14 @@ def connect(mode: str, server: str, node: Node = None, verbose: bool = False,
 
     if mode == MODE_SWITCH:
         environ['IS_SWITCH'] = 'True'
+
+    iperf3 = kwargs['iperf3']
+    if iperf3:
+        if iperf3 in ('client', 'server', 'dual'):
+            environ['IPERF3_MODE'] = iperf3
+        else:
+            console.error('iPerf3 option must be client, server, or dual')
+            all_exit()
 
     environ['PROTOCOL_VERBOSE'] = str(verbose)
 
@@ -190,14 +204,14 @@ if __name__ == '__main__':
 
     if mode == MODE_CLIENT:
         connect(mode, args.server, verbose=args.verbose != False,
-                id=args.id, label=args.label)
+                id=args.id, label=args.label, iperf3=args.iperf3)
     elif mode == MODE_RESOURCE:
         connect(mode, args.server, verbose=args.verbose != False,
                 id=args.id, label=args.label, limit=args.limit, cpu=args.cpu,
-                ram=args.ram, disk=args.disk)
+                ram=args.ram, disk=args.disk, iperf3=args.iperf3)
     elif mode == MODE_SWITCH:
         connect(mode, args.server, verbose=args.verbose != False,
-                dpid=args.dpid)
+                dpid=args.dpid, iperf3=args.iperf3)
     else:
         parser.print_help()
         all_exit()
@@ -205,7 +219,8 @@ if __name__ == '__main__':
     if mode in (MODE_CLIENT, MODE_RESOURCE):
         from protocol import PROTO_SEND_TO
         if PROTO_SEND_TO in (SEND_TO_BROADCAST, SEND_TO_ORCHESTRATOR):
-            from resources import MY_IP, get_resources
+            from network import MY_IP
+            from resources import get_resources
             from protocol import send_request
             from gui import app
 

@@ -4,10 +4,7 @@ from os import makedirs
 from consts import ROOT_PATH
 
 
-try:
-    makedirs(ROOT_PATH + '/data', mode=0o777)
-except FileExistsError:
-    pass
+makedirs(ROOT_PATH + '/data', mode=0o777, exist_ok=True)
 
 LOG_FILE = ROOT_PATH + '/data/app.log'
 FILE_LEVEL = DEBUG

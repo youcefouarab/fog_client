@@ -19,6 +19,14 @@
     interface specs).
 
     add_request(req): Send POST request to add req to Requests database.
+
+    add_iperf3_listeners(node): Send POST request to add iPerf3 listeners.
+
+    get_iperf3_target(node, iface): Send GET request to get iPerf3 target for 
+    given interface.
+
+    delete_iperf3_listeners(node): Send DELETE request to delete iPerf3 
+    listeners.
 '''
 
 
@@ -31,7 +39,7 @@ from os import getenv
 from requests import get, post, put, delete
 from html.parser import HTMLParser
 
-from model import Node, Request
+from model import Node, Request, Interface
 from common import SERVER_IP
 from consts import HTTP_EXISTS, HTTP_SUCCESS
 from logger import console, file
@@ -55,6 +63,8 @@ def get_config():
     '''
         Send GET request to get the configuration of the protocol, the 
         simulation, etc.
+
+        Returns (json, code, msg), where json is dict.
     '''
 
     return _ryu_get_config()
@@ -64,7 +74,7 @@ def add_node(node: Node):
     '''
         Send POST request to add node to the orchestrated topology.
 
-        Returns (state, code), where state is True if added, False if not.
+        Returns (state, code, msg), where state is True if added, False if not.
     '''
 
     return _ryu_add_node(node)
@@ -74,7 +84,8 @@ def delete_node(node: Node):
     '''
         Send DELETE request to delete node from the orchestrated topology.
 
-        Returns (state, code), where state is True if deleted, False if not.
+        Returns (state, code, msg), where state is True if deleted, False if 
+        not.
     '''
 
     return _ryu_delete_node(node)
@@ -84,7 +95,8 @@ def update_node_specs(node: Node):
     '''
         Send PUT request to update node specs (including interface specs).
 
-        Returns (state, code), where state is True if updated, False if not.
+        Returns (state, code, msg), where state is True if updated, False if 
+        not.
     '''
 
     return _ryu_update_node_specs(node)
@@ -94,10 +106,41 @@ def add_request(req: Request):
     '''
         Send POST request to add req to Requests database.
 
-        Returns (state, code), where state is True if added, False if not.
+        Returns (state, code, msg), where state is True if added, False if not.
     '''
 
     return _ryu_add_request(req)
+
+
+def add_iperf3_listeners(node: Node):
+    '''
+        Send POST request to add iPerf3 listeners.
+
+        Returns (state, code, msg), where state is True if added, False if not.
+    '''
+
+    return _ryu_add_iperf3_listeners(node)
+
+
+def get_iperf3_target(node: Node, iface: Interface):
+    '''
+        Send GET request to get iPerf3 target for given interface.
+
+        Returns (json, code, msg), where json is dict.
+    '''
+
+    return _ryu_get_iperf3_target(node, iface)
+
+
+def delete_iperf3_listeners(node: Node):
+    '''
+        Send DELETE request to delete iPerf3 listeners.
+
+        Returns (state, code, msg), where state is True if deleted, False if 
+        not.
+    '''
+
+    return _ryu_delete_iperf3_listeners(node)
 
 
 # ===============
@@ -133,7 +176,11 @@ def _ryu_request(method: str, path: str, data: dict = {}):
             r = get(url, headers=RYU_HEADERS, json=data)
             code = r.status_code
             msg = _html.get(r.text)
-            return (r.json(), code, msg) if (
+            try:
+                json = r.json()
+            except:
+                json = None
+            return (json, code, msg) if (
                 code == HTTP_SUCCESS) else (None, code, msg)
         elif method == 'POST':
             r = post(url, headers=RYU_HEADERS, json=data)
@@ -175,7 +222,6 @@ def _ryu_delete_node(node: Node):
 
 
 def _ryu_update_node_specs(node: Node):
-
     return _ryu_request('put', '/node_specs/' + str(node.id), {
         'cpu_count': node.get_cpu_count(),
         'cpu_free': node.get_cpu_free(),
@@ -191,13 +237,16 @@ def _ryu_update_node_specs(node: Node):
             'bandwidth_down': iface.get_bandwidth_down(),
             'tx_packets': iface.get_tx_packets(),
             'rx_packets': iface.get_rx_packets(),
+            'tx_bytes': iface.get_tx_bytes(),
+            'rx_bytes': iface.get_rx_bytes(),
+            '_recv_bps': iface._recv_bps,
             'timestamp': iface.get_timestamp()
         } for iface in node.interfaces.values()]
     })
 
 
 def _ryu_add_request(req: Request):
-    from resources import MY_IP
+    from network import MY_IP
     return _ryu_request('post', '/request', {
         'id': req.id,
         'src': MY_IP,
@@ -225,3 +274,19 @@ def _ryu_add_request(req: Request):
             } for response in attempt.responses.values()]
         } for attempt in req.attempts.values()]
     })
+
+
+def _ryu_add_iperf3_listeners(node: Node):
+    listeners = {name: iface._iperf3_ip
+                 for name, iface in node.interfaces.items()}
+    listeners['_default_iperf3_ip'] = node._default_iperf3_ip
+    return _ryu_request('post', '/iperf3/' + str(node.id), listeners)
+
+
+def _ryu_get_iperf3_target(node: Node, iface: Interface):
+    return _ryu_request('get',
+                        '/iperf3/' + str(node.id) + '/' + str(iface.name))
+
+
+def _ryu_delete_iperf3_listeners(node: Node):
+    return _ryu_request('delete', '/iperf3/' + str(node.id))

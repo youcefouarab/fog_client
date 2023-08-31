@@ -36,9 +36,7 @@ path.append(dirname(__file__))
 
 
 from .monitor import IS_CONTAINER
-from .network import NETWORK_ADDRESS, BROADCAST_IP, MY_IFACE, MY_IP
 from .simulator import (check_resources, get_resources, reserve_resources,
-                        free_resources, execute, MONITOR, MONITOR_PERIOD,
-                        MEASURES, IS_RESOURCE, SIM_ON, CPU, RAM, DISK, LIMIT,
-                        THRESHOLD, CPU_THRESHOLD, RAM_THRESHOLD,
-                        DISK_THRESHOLD, SIM_EXEC_MIN, SIM_EXEC_MAX)
+                        free_resources, execute, SIM_EXEC_MIN, SIM_EXEC_MAX,
+                        MONITOR, MONITOR_PERIOD, MEASURES, SIM_ON, CPU, RAM, 
+                        DISK, CPU_THRESHOLD, RAM_THRESHOLD, DISK_THRESHOLD)

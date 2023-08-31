@@ -36,8 +36,9 @@ from scapy.all import (Packet, ByteEnumField, StrLenField, IntEnumField,
                        sniff, Ether, IP)
 
 from resources import (get_resources, check_resources, reserve_resources,
-                       free_resources, execute, MY_IFACE, MY_IP, BROADCAST_IP,
-                       IS_RESOURCE)
+                       free_resources, execute)
+from network import MY_IFACE, MY_IP, BROADCAST_IP
+from common import IS_RESOURCE
 from model import Request, Response
 from logger import console
 from settings import *
@@ -567,7 +568,8 @@ def send_request(cos_id: int, data: bytes):
                                 send(IP(dst=req.host)
                                      / MyProtocol(state=DACK, req_id=req_id),
                                      verbose=0, iface=MY_IFACE)
-                            Thread(target=save_req, args=(req,), daemon=True).start()
+                            Thread(target=save_req, args=(
+                                req,), daemon=True).start()
                             return req.result
                         elif not req.dres_at:
                             console.info('No data')

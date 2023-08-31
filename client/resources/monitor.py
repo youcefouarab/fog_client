@@ -1,19 +1,28 @@
-from os import getenv
+# !!IMPORTANT!!
+# This module relies on config that is only present AFTER the connect()
+# method is called, so only import after
+
+
+from os import getenv, makedirs
 from threading import Thread
 from time import sleep
-from psutil import net_if_stats, net_io_counters
-from psutil import cpu_count, cpu_percent, virtual_memory, disk_usage
+from psutil import (net_if_stats, net_io_counters, cpu_count, cpu_percent,
+                    virtual_memory, disk_usage)
 
 from python_ovs_vsctl import (VSCtl, list_cmd_parser, VSCtlCmdExecError,
                               VSCtlCmdParseError)
+
+from my_iperf3 import iperf3_measures, iperf3_enabled
 from logger import console, file
 from consts import ROOT_PATH
+from common import IS_SWITCH
 from utils import SingletonMeta
 
 
-IS_SWITCH = getenv('IS_SWITCH', False)
 IS_CONTAINER = getenv('IS_CONTAINER', False)
 CGROUP_PATH = '/sys/fs/cgroup'
+
+CAPS_PATH = ROOT_PATH + '/caps'
 
 MEGA = 10e+6
 MEBI = 1048576
@@ -71,6 +80,7 @@ class Monitor(metaclass=SingletonMeta):
 
         self._run = False
         self._cpu_period = 0.1
+        self._ovs_port_to_iface = {}
 
     def start(self):
         '''
@@ -90,6 +100,22 @@ class Monitor(metaclass=SingletonMeta):
         self.monitor_period = period
 
     def _start(self):
+        self._const_host()
+        self._const_net()
+        # get network I/O stats on each interface
+        # by setting pernic to True
+        io = net_io_counters(pernic=True)
+        while self._run:
+            self._var_host()
+            sleep(self.monitor_period - self._cpu_period)
+            io2 = self._var_net(io)
+            # update network I/O stats for next iteration
+            io = io2
+
+    def _const_host(self):
+        # get host specs that are constant
+        # (CPU count, RAM total, disk total)
+
         psutil_mem_total = virtual_memory().total
         if IS_CONTAINER:
             # get usage of each CPU (in nanoseconds)
@@ -122,95 +148,157 @@ class Monitor(metaclass=SingletonMeta):
             self.measures['cpu_count'] = int(cpus)
             self.measures['memory_total'] = float(psutil_mem_total / MEBI)
         self.measures['disk_total'] = float(disk_usage(ROOT_PATH).total / GIBI)
-        # get network I/O stats on each interface
-        # by setting pernic to True
-        io = net_io_counters(pernic=True)
-        while self._run:
-            # node specs
-            if IS_CONTAINER:
-                try:
-                    self.measures['memory_free'] = float(memory_total - float(open(
+
+    def _var_host(self):
+        # get host specs that are variable
+        # (CPU free, RAM free, disk free)
+
+        if IS_CONTAINER:
+            try:
+                self.measures['memory_free'] = float(
+                    self.measures['memory_total'] - float(open(
                         CGROUP_PATH + '/memory/memory.usage_in_bytes').read())) / MEBI
-                except:
-                    file.exception('')
-                    self.measures['memory_free'] = float(
-                        virtual_memory().available / MEBI)
-            else:
-                self.measures['cpu_free'] = float(cpus - sum(
-                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
+            except:
+                file.exception('')
                 self.measures['memory_free'] = float(
                     virtual_memory().available / MEBI)
-            self.measures['disk_free'] = float(disk_usage(ROOT_PATH).free/GIBI)
-            sleep(self._cpu_period)
-            if IS_CONTAINER:
-                # get CPU usage again after sleep
-                try:
-                    percpu_2 = open(
-                        CGROUP_PATH + '/cpu/cpuacct.usage_percpu').read().split(' ')
-                    cpu_usage = 0
-                    for i, cpu in enumerate(percpu):
-                        if cpu != '\n':
-                            cpu_usage += ((float(percpu_2[i]) - float(cpu)) /
-                                          (self._cpu_period / NANO))
-                    self.measures['cpu_free'] = float(cpus - cpu_usage)
-                    # update CPU usage for next iteration
-                    percpu = percpu_2
-                except:
-                    file.exception('')
-                    self.measures['cpu_free'] = float(cpus - sum(
-                        cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
-            sleep(self.monitor_period - self._cpu_period)
-            # get network I/O stats on each interface again after period
-            io_2 = net_io_counters(pernic=True)
-            # get network interfaces stats
-            stats = net_if_stats()
-            for iface in io:
-                if iface != 'lo' and iface in io_2 and iface in stats:
-                    # bandwidth
-                    # speed = (new bytes - old bytes) / period
-                    # current speed = max(up speed, down speed)
-                    prev = io[iface]
-                    next = io_2[iface]
-                    up_bytes = next.bytes_sent - prev.bytes_sent
-                    up_speed = up_bytes * BYTE / self.monitor_period
-                    down_bytes = next.bytes_recv - prev.bytes_recv
-                    down_speed = down_bytes * BYTE / self.monitor_period
-                    #  get max speed (capacity)
-                    max_speed = stats[iface].speed * MEGA
-                    # calculate free bandwidth
-                    bandwidth_up = max(0, (max_speed - up_speed) / MEGA)
-                    bandwidth_down = max(0, (max_speed - down_speed) / MEGA)
-                    #  save bandwidth measurement
-                    self.measures.setdefault(iface, {})
-                    self.measures[iface]['capacity'] = float(max_speed / MEGA)
-                    self.measures[iface]['bandwidth_up'] = float(bandwidth_up)
-                    self.measures[iface]['bandwidth_down'] = float(
-                        bandwidth_down)
-                    self.measures[iface]['tx_packets'] = int(next.packets_sent)
-                    self.measures[iface]['rx_packets'] = int(next.packets_recv)
-            # update network I/O stats for next iteration
-            io = io_2
+        else:
+            self.measures['cpu_free'] = float(self.measures['cpu_count'] - sum(
+                cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
+            self.measures['memory_free'] = float(
+                virtual_memory().available / MEBI)
+        self.measures['disk_free'] = float(disk_usage(ROOT_PATH).free/GIBI)
+        sleep(self._cpu_period)
+        if IS_CONTAINER:
+            # get CPU usage again after sleep
+            try:
+                percpu_2 = open(
+                    CGROUP_PATH + '/cpu/cpuacct.usage_percpu').read().split(' ')
+                cpu_usage = 0
+                for i, cpu in enumerate(percpu):
+                    if cpu != '\n':
+                        cpu_usage += ((float(percpu_2[i]) - float(cpu)) /
+                                      (self._cpu_period / NANO))
+                self.measures['cpu_free'] = float(self.measures['cpu_count']
+                                                  - cpu_usage)
+                # update CPU usage for next iteration
+                percpu = percpu_2
+            except:
+                file.exception('')
+                self.measures['cpu_free'] = float(self.measures['cpu_count'] - sum(
+                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
+
+    def _const_net(self):
+        # get network specs that are constant
+        # (capacity)
+
+        stats = net_if_stats()
+
+        def _get_capacity(ports):
+            for port in ports:
+                cap = None
+                update_file = True
+                if iperf3_enabled:
+                    if port in iperf3_measures:
+                        cap = iperf3_measures[port].get('sent_bps', None)
+                        if cap != None:
+                            cap = cap / MEGA
+                if cap == None:
+                    if iperf3_enabled:
+                        console.warning('Couldn\'t read capacity for %s from '
+                                        'iPerf3. Switching to file' % port)
+                    try:
+                        cap = float(open(CAPS_PATH + '/' + port).read())
+                    except Exception as e:
+                        console.warning('Couldn\'t read capacity for %s from '
+                                        'file caps/%s due to %s. Switching to '
+                                        'psutil' %
+                                        (port, port, e.__class__.__name__))
+                        file.warning('Couldn\'t read capacity for %s from file '
+                                     'caps/%s due to %s' %
+                                     (port, port, e.__class__.__name__),
+                                     exc_info=True)
+                        iface = port
+                        if IS_SWITCH:
+                            iface = ports[port]
+                        cap = stats[iface].speed
+                    else:
+                        update_file = False
+                cap = float(cap)
+                self.measures.setdefault(port, {})
+                self.measures[port]['capacity'] = cap
+                if update_file:
+                    console.info('Updating capacity in file caps/%s' % port)
+                    makedirs(CAPS_PATH, mode=0o777, exist_ok=True)
+                    f = open(CAPS_PATH + '/' + port, 'w')
+                    f.write(str(cap))
+                    f.close()
+
+        if not IS_SWITCH:
+            _get_capacity(stats)
+        else:
+            try:
+                # get ports from OVS
+                vsctl = VSCtl()
+                records = vsctl.run('list interface',
+                                    parser=list_cmd_parser)
+                for record in records:
+                    port = record.__dict__
+                    name = port.get('name', None)
+                    if name:
+                        # get associated "physical" interface
+                        iface = port.get(
+                            'status', {}).get('tunnel_egress_iface', None)
+                        if iface:
+                            self._ovs_port_to_iface[name] = iface
+                        elif name in stats:
+                            self._ovs_port_to_iface[name] = name
+            except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
+                console.error('Couldn\'t get OVS ports due to %s',
+                              e.__class__.__name__)
+                file.exception('Couldn\'t get OVS ports due to %s',
+                               e.__class__.__name__)
+            _get_capacity(self._ovs_port_to_iface)
+
+    def _var_net(self, io):
+        # get network specs that are variable
+        # (bandwidth free, Tx packets, Rx packets)
+
+        # get network I/O stats on each interface again after period
+        io_2 = net_io_counters(pernic=True)
+        ports = io
+        if IS_SWITCH:
+            ports = self._ovs_port_to_iface
+        for port in ports:
+            iface = port
             if IS_SWITCH:
-                try:
-                    # get ports from OVS
-                    vsctl = VSCtl()
-                    records = vsctl.run('list interface',
-                                        parser=list_cmd_parser)
-                    stats = net_if_stats()
-                    for record in records:
-                        port = record.__dict__
-                        name = port.get('name', None)
-                        if name:
-                            # get associated "physical" interface
-                            iface = port.get(
-                                'status', {}).get('tunnel_egress_iface', None)
-                            if iface and iface in self.measures:
-                                self.measures[name] = self.measures[iface]
-                except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
-                    console.error('Couldn\'t get OVS ports due to %s',
-                                  e.__class__.__name__)
-                    file.exception('Couldn\'t get OVS ports due to %s',
-                                   e.__class__.__name__)
+                iface = self._ovs_port_to_iface[port]
+            if iface != 'lo' and iface in io_2 and port in self.measures:
+                # bandwidth
+                # speed = (new bytes - old bytes) / period
+                # current speed = max(up speed, down speed)
+                prev = io[iface]
+                next = io_2[iface]
+                bytes_sent = next.bytes_sent
+                bytes_recv = next.bytes_recv
+                up_bytes = bytes_sent - prev.bytes_sent
+                up_speed = up_bytes * BYTE / self.monitor_period
+                down_bytes = bytes_recv - prev.bytes_recv
+                down_speed = down_bytes * BYTE / self.monitor_period
+                #  get max speed (capacity)
+                max_speed = self.measures[port]['capacity'] * MEGA
+                # calculate free bandwidth
+                bandwidth_up = max(0, (max_speed - up_speed) / MEGA)
+                bandwidth_down = max(0, (max_speed - down_speed) / MEGA)
+                #  save bandwidth measurement
+                self.measures.setdefault(port, {})
+                self.measures[port]['bandwidth_up'] = float(bandwidth_up)
+                self.measures[port]['bandwidth_down'] = float(bandwidth_down)
+                self.measures[port]['tx_packets'] = int(next.packets_sent)
+                self.measures[port]['rx_packets'] = int(next.packets_recv)
+                self.measures[port]['tx_bytes'] = int(bytes_sent)
+                self.measures[port]['rx_bytes'] = int(bytes_recv)
+        return io_2
 
 
 # for testing

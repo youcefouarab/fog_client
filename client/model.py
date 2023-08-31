@@ -172,7 +172,7 @@ class InterfaceSpecs(Model):
 
         Attributes:
         -----------
-        capacity: Total capacity. Default is 0.
+        capacity: Total interface capacity. Default is 0.
 
         bandwidth_up: Free egress bandwidth. Default is 0.
 
@@ -182,17 +182,24 @@ class InterfaceSpecs(Model):
 
         rx_packets: Number of received packets. Default is 0.
 
+        tx_bytes: Number of transmitted bytes. Default is 0.
+
+        rx_bytes: Number of received bytes. Default is 0.
+
         timestamp: Default is time of update.
     '''
 
-    def __init__(self, capacity: float = 0.0, bandwidth_up: float = 0.0,
-                 bandwidth_down: float = 0.0, tx_packets: int = 0,
-                 rx_packets: int = 0, timestamp: float = 0.0):
+    def __init__(self, capacity: float = 0, bandwidth_up: float = 0,
+                 bandwidth_down: float = 0, tx_packets: int = 0,
+                 rx_packets: int = 0, tx_bytes: int = 0, rx_bytes: int = 0,
+                 timestamp: float = 0):
         self.capacity = capacity
         self.bandwidth_up = bandwidth_up
         self.bandwidth_down = bandwidth_down
         self.tx_packets = tx_packets
         self.rx_packets = rx_packets
+        self.tx_bytes = tx_bytes
+        self.rx_bytes = rx_bytes
         self.timestamp = timestamp if timestamp else time()
 
 
@@ -223,6 +230,8 @@ class Interface(Model):
         self.mac = mac
         self.ipv4 = ipv4
         self.specs = specs if specs else InterfaceSpecs()
+        self._iperf3_ip = None
+        self._recv_bps = None
 
     def as_dict(self, flat: bool = False, _prefix: str = ''):
         d = super().as_dict(flat, _prefix)
@@ -272,6 +281,20 @@ class Interface(Model):
 
     def set_rx_packets(self, rx_packets: int = 0):
         self.specs.rx_packets = rx_packets
+        self.set_timestamp()
+
+    def get_tx_bytes(self):
+        return self.specs.tx_bytes
+
+    def set_tx_bytes(self, tx_bytes: int = 0):
+        self.specs.tx_bytes = tx_bytes
+        self.set_timestamp()
+
+    def get_rx_bytes(self):
+        return self.specs.rx_bytes
+
+    def set_rx_bytes(self, rx_bytes: int = 0):
+        self.specs.rx_bytes = rx_bytes
         self.set_timestamp()
 
     def get_timestamp(self):
@@ -375,6 +398,7 @@ class Node(Model):
         self.specs = specs if specs else NodeSpecs()
         self.threshold = 1.0  # float (gross value; to get percentage, multiply
         # by 100)
+        self._default_iperf3_ip = None
 
     def as_dict(self, flat: bool = False):
         d = super().as_dict(flat)

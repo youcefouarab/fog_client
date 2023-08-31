@@ -11,31 +11,31 @@ from python_ovs_vsctl import (VSCtl, list_cmd_parser, VSCtlCmdExecError,
 from model import Node, NodeType, Interface
 from consts import MODE_CLIENT, MODE_RESOURCE, MODE_SWITCH, HTTP_EXISTS
 from logger import console, file
-from utils import SingletonMeta, all_exit
+from utils import SingletonMeta, get_default_ip, all_exit
 
 
 class Manager(metaclass=SingletonMeta):
     '''
-        Singleton class for managing multiple aspects of the client component, 
-        such as building the Node and Interface models, managing the connection 
-        to the orchestrator, and sending node and/or network specs periodically 
+        Singleton class for managing multiple aspects of the client component,
+        such as building the Node and Interface models, managing the connection
+        to the orchestrator, and sending node and/or network specs periodically
         (depending on the mode).
 
         Attributes:
         -----------
-        node: Custom Node object (useful for simulations and/or testing). Not 
-        required; by default, the Node object is automatically built from the 
-        node's real data. 
+        node: Custom Node object (useful for simulations and/or testing). Not
+        required; by default, the Node object is automatically built from the
+        node's real data.
 
         verbose: If True, a detailed output will be produced on the console.
 
         Methods:
         --------
-        connect(mode, **kwargs): Request the joining of the node in the 
-        orchestrated topology in one of three modes: client, resource, or 
+        connect(mode, **kwargs): Request the joining of the node in the
+        orchestrated topology in one of three modes: client, resource, or
         switch.
 
-        disconnect(): Request the withdrawal of the node from the orchestrated 
+        disconnect(): Request the withdrawal of the node from the orchestrated
         topology.
     '''
 
@@ -44,25 +44,26 @@ class Manager(metaclass=SingletonMeta):
         self.verbose = verbose
 
         self._connected = False
+        self._iperf3_listeners = []
 
     def connect(self, mode: str, **kwargs):
         '''
-            Request the joining of the node in the orchestrated topology in one 
+            Request the joining of the node in the orchestrated topology in one
             of three modes: client, resource, or switch.
 
-            Client mode means the node participates in the orchestration but 
+            Client mode means the node participates in the orchestration but
             only to request resources; it has no resources of its own to offer.
 
-            Resource mode includes client mode, but the node also offers its 
+            Resource mode includes client mode, but the node also offers its
             resources for use by other clients and resources.
 
-            If the mode is 'client' or 'resource', it is possible to specify a 
-            custom node ID and/or label through 'id' and 'label' kwargs 
-            respectively (this is useful, and sometimes necessary to avoid 
+            If the mode is 'client' or 'resource', it is possible to specify a
+            custom node ID and/or label through 'id' and 'label' kwargs
+            respectively (this is useful, and sometimes necessary to avoid
             conflicts, in simulations and/or emulations like Mininet).
 
-            Switch mode can be used when a switch's particular implementation 
-            is not fully recognized by the controller (example: using VxLAN to 
+            Switch mode can be used when a switch's particular implementation
+            is not fully recognized by the controller (example: using VxLAN to
             establish links).
 
             If the mode is 'switch', 'dpid' kwarg must be specified.
@@ -72,7 +73,7 @@ class Manager(metaclass=SingletonMeta):
 
         self._mode = mode
 
-        from api import get_config, add_node
+        from api import get_config, add_node, add_iperf3_listeners
         conf = None
         _code = [0, 0]
         console.info('Getting configuration')
@@ -94,10 +95,10 @@ class Manager(metaclass=SingletonMeta):
             self._build(**kwargs)
 
         if mode == MODE_CLIENT or mode == MODE_RESOURCE:
-            from resources import MY_IFACE, THRESHOLD
+            from network import MY_IFACE
+            from common import THRESHOLD
             self.node.main_interface = MY_IFACE
             self.node.threshold = THRESHOLD
-
             _code = [0, 0]
             console.info('Connecting')
             while not self._connected:
@@ -112,8 +113,6 @@ class Manager(metaclass=SingletonMeta):
                         console.info('Done')
                         console.info('Node added successfully')
                         Thread(target=self._udp_connect, daemon=True).start()
-                        Thread(target=self._update_specs, daemon=True).start()
-
                     else:
                         file.error(code)
                         if _code[0] != code[0] or _code[1] != code[1]:
@@ -121,9 +120,13 @@ class Manager(metaclass=SingletonMeta):
                             _code = code
                         sleep(1)
 
-        else:
-            self._connected = True
-            Thread(target=self._update_specs).start()
+        self._connected = True
+
+        add_iperf3_listeners(self.node)
+        from my_iperf3 import launch_iperf3
+        launch_iperf3(self.node, self._iperf3_listeners)
+
+        Thread(target=self._update_specs).start()
 
         return True
 
@@ -134,9 +137,10 @@ class Manager(metaclass=SingletonMeta):
             Returns True if withdrawn properly, False if not.
         '''
 
-        from api import delete_node
+        from api import delete_node, delete_iperf3_listeners
         console.info('Disconnecting')
         self._connected = False
+        delete_iperf3_listeners(self.node)
         if self._mode != MODE_SWITCH:
             if self.node:
                 deleted, *code = delete_node(self.node)
@@ -180,31 +184,46 @@ class Manager(metaclass=SingletonMeta):
                 label = self._get_label()
             type = NodeType(NodeType.SERVER)
         self.node = Node(id, True, type, label)
+        self.node._default_iperf3_ip = get_default_ip()
 
-        if self._mode == MODE_SWITCH:
-            try:
-                # get ports from OVS
-                vsctl = VSCtl()
-                for record in vsctl.run('list interface',
-                                        parser=list_cmd_parser):
-                    # get associated "physical" interface
-                    name = record.__dict__.get('name', None)
-                    if name:
-                        self.node.interfaces[name] = Interface(name)
-            except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
-                console.error('OVS ports not added due to %s',
-                              e.__class__.__name__)
-                file.exception('OVS ports not added due to %s',
-                               e.__class__.__name__)
         for name, snics in net_if_addrs().items():
             if name != 'lo':
                 interface = Interface(name)
                 for snic in snics:
                     if snic.family == AF_INET:
                         interface.ipv4 = snic.address
+                        interface._iperf3_ip = (
+                            snic.address or self.node._default_iperf3_ip)
                     if snic.family == AF_PACKET:
                         interface.mac = snic.address
                 self.node.interfaces[name] = interface
+        if self._mode == MODE_SWITCH:
+            try:
+                # get ports from OVS
+                vsctl = VSCtl()
+                for record in vsctl.run('list interface',
+                                        parser=list_cmd_parser):
+                    port = record.__dict__
+                    name = port.get('name', None)
+                    if name:
+                        interface = Interface(name)
+                        # get associated "physical" interface
+                        iface = port.get(
+                            'status', {}).get('tunnel_egress_iface', None)
+                        if iface and iface in self.node.interfaces:
+                            i = self.node.interfaces[iface]
+                            interface.mac = i.mac
+                            interface.ipv4 = i.ipv4
+                            interface._iperf3_ip = i._iperf3_ip
+                        interface._iperf3_ip = (
+                            interface._iperf3_ip or self.node._default_iperf3_ip)
+                        self.node.interfaces[name] = interface
+                        self._iperf3_listeners.append(name)
+            except (VSCtlCmdExecError, VSCtlCmdParseError) as e:
+                console.error('OVS ports not added due to %s',
+                              e.__class__.__name__)
+                file.exception('OVS ports not added due to %s',
+                               e.__class__.__name__)
         console.info('Done')
 
     def _udp_connect(self):
@@ -237,7 +256,8 @@ class Manager(metaclass=SingletonMeta):
 
     def _update_specs(self):
         from resources import MEASURES, MONITOR_PERIOD, get_resources
-        from api import add_node, update_node_specs
+        from api import add_node, update_node_specs, add_iperf3_listeners
+        from my_iperf3 import iperf3_measures
 
         # constant measures
         from resources import CPU, RAM, DISK
@@ -245,9 +265,13 @@ class Manager(metaclass=SingletonMeta):
         self.node.set_memory_total(RAM)
         self.node.set_disk_total(DISK)
 
+        err = False
         _code = [0, 0]
         while self._connected:
-            sleep(MONITOR_PERIOD)
+            if not err:
+                sleep(MONITOR_PERIOD)
+            else:
+                sleep(1)
             # current resources are gotten from simulator
             cpu, ram, disk = get_resources(quiet=True)
             self.node.set_cpu_free(cpu)
@@ -261,9 +285,17 @@ class Manager(metaclass=SingletonMeta):
                 iface.set_bandwidth_down(IM.get('bandwidth_down', None))
                 iface.set_tx_packets(IM.get('tx_packets', None))
                 iface.set_rx_packets(IM.get('rx_packets', None))
+                iface.set_tx_bytes(IM.get('tx_bytes', None))
+                iface.set_rx_bytes(IM.get('rx_bytes', None))
+                if name in iperf3_measures:
+                    iface._recv_bps = iperf3_measures[name].get(
+                        'received_bps', None)
 
             updated, *code = update_node_specs(self.node)
             if updated:
+                if err:
+                    add_iperf3_listeners(self.node)
+                err = False
                 if _code[0] != code[0] or _code[1] != code[1]:
                     if self._mode == MODE_RESOURCE:
                         console.info('Node specs are being sent')
@@ -272,6 +304,7 @@ class Manager(metaclass=SingletonMeta):
                     _code = code
 
             else:
+                err = True
                 file.error('Specs are not being sent %s', str(code))
                 if _code[0] != code[0] or _code[1] != code[1]:
                     console.error('Specs are not being sent %s', str(code))
