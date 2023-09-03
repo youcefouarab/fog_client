@@ -13,6 +13,8 @@ from python_ovs_vsctl import (VSCtl, list_cmd_parser, VSCtlCmdExecError,
                               VSCtlCmdParseError)
 
 from my_iperf3 import iperf3_measures, iperf3_enabled
+from wifi import (launch_hostapd, hostapd_dict, launch_iw, iw_dict,
+                  wifi_capacity_map)
 from logger import console, file
 from consts import ROOT_PATH
 from common import IS_SWITCH
@@ -101,6 +103,10 @@ class Monitor(metaclass=SingletonMeta):
 
     def _start(self):
         self._const_host()
+        if IS_SWITCH:
+            launch_hostapd()
+        else:
+            launch_iw()
         self._const_net()
         # get network I/O stats on each interface
         # by setting pernic to True
@@ -196,43 +202,59 @@ class Monitor(metaclass=SingletonMeta):
 
         def _get_capacity(ports):
             for port in ports:
-                cap = None
-                update_file = True
-                if iperf3_enabled:
-                    if port in iperf3_measures:
-                        cap = iperf3_measures[port].get('sent_bps', None)
-                        if cap != None:
-                            cap = cap / MEGA
-                if cap == None:
-                    if iperf3_enabled:
-                        console.warning('Couldn\'t read capacity for %s from '
-                                        'iPerf3. Switching to file' % port)
-                    try:
-                        cap = float(open(CAPS_PATH + '/' + port).read())
-                    except Exception as e:
-                        console.warning('Couldn\'t read capacity for %s from '
-                                        'file caps/%s due to %s. Switching to '
-                                        'psutil' %
-                                        (port, port, e.__class__.__name__))
-                        file.warning('Couldn\'t read capacity for %s from file '
-                                     'caps/%s due to %s' %
-                                     (port, port, e.__class__.__name__),
-                                     exc_info=True)
-                        iface = port
-                        if IS_SWITCH:
-                            iface = ports[port]
-                        cap = stats[iface].speed
-                    else:
-                        update_file = False
-                cap = float(cap)
-                self.measures.setdefault(port, {})
-                self.measures[port]['capacity'] = cap
-                if update_file:
-                    console.info('Updating capacity in file caps/%s' % port)
-                    makedirs(CAPS_PATH, mode=0o777, exist_ok=True)
-                    f = open(CAPS_PATH + '/' + port, 'w')
-                    f.write(str(cap))
-                    f.close()
+                iface = port
+                if IS_SWITCH:
+                    iface = ports[port]
+                if port != 'lo' and iface != 'lo' and iface not in iw_dict:
+                    cap = None
+                    update_file = True
+                    if iperf3_enabled and iface not in hostapd_dict:
+                        if port in iperf3_measures:
+                            cap = iperf3_measures[port].get('sent_bps', None)
+                            if cap != None:
+                                cap = cap / MEGA
+                    if cap == None:
+                        if iperf3_enabled and iface not in hostapd_dict:
+                            console.warning('Couldn\'t read capacity for %s '
+                                            'from iPerf3. Switching to file' %
+                                            port)
+                        try:
+                            cap = float(open(CAPS_PATH + '/' + port).read())
+                        except Exception as e:
+                            alt = 'psutil'
+                            if iface in hostapd_dict:
+                                alt = 'hostapd'
+                            console.warning('Couldn\'t read capacity for %s '
+                                            'from file caps/%s due to %s. '
+                                            'Switching to %s' %
+                                            (port, port, e.__class__.__name__,
+                                             alt))
+                            file.warning('Couldn\'t read capacity for %s from '
+                                         'file caps/%s due to %s' %
+                                         (port, port, e.__class__.__name__),
+                                         exc_info=True)
+                            if iface in hostapd_dict:
+                                mode = hostapd_dict[iface].get('hw_mode', None)
+                                cap = wifi_capacity_map.get(mode, None)
+                                if cap == None:
+                                    console.warning(
+                                        'Couldn\'t read capacity for %s from '
+                                        'wifi capacity map (mode \'%s\'). '
+                                        'Switching to psutil' % (port, mode))
+                            if cap == None:
+                                cap = stats[iface].speed
+                        else:
+                            update_file = False
+                    cap = float(cap)
+                    self.measures.setdefault(port, {})
+                    self.measures[port]['capacity'] = cap
+                    if update_file:
+                        console.info('Updating capacity in file caps/%s' %
+                                     port)
+                        makedirs(CAPS_PATH, mode=0o777, exist_ok=True)
+                        f = open(CAPS_PATH + '/' + port, 'w')
+                        f.write(str(cap))
+                        f.close()
 
         if not IS_SWITCH:
             _get_capacity(stats)
@@ -273,10 +295,9 @@ class Monitor(metaclass=SingletonMeta):
             iface = port
             if IS_SWITCH:
                 iface = self._ovs_port_to_iface[port]
-            if iface != 'lo' and iface in io_2 and port in self.measures:
+            if port != 'lo' and iface != 'lo' and iface in io_2:
                 # bandwidth
                 # speed = (new bytes - old bytes) / period
-                # current speed = max(up speed, down speed)
                 prev = io[iface]
                 next = io_2[iface]
                 bytes_sent = next.bytes_sent
@@ -286,7 +307,17 @@ class Monitor(metaclass=SingletonMeta):
                 down_bytes = bytes_recv - prev.bytes_recv
                 down_speed = down_bytes * BYTE / self.monitor_period
                 #  get max speed (capacity)
-                max_speed = self.measures[port]['capacity'] * MEGA
+                max_speed = 0
+                if iface in iw_dict:
+                    max_speed = iw_dict[iface].get('tx bitrate', None)
+                    try:
+                        max_speed = float(max_speed.strip(' MBit/s'))
+                    except:
+                        max_speed = 0
+                    self.measures.setdefault(port, {})
+                    self.measures[port]['capacity'] = max_speed
+                if port in self.measures:
+                    max_speed = self.measures[port]['capacity'] * MEGA
                 # calculate free bandwidth
                 bandwidth_up = max(0, (max_speed - up_speed) / MEGA)
                 bandwidth_down = max(0, (max_speed - down_speed) / MEGA)
