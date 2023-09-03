@@ -314,6 +314,7 @@ class Monitor(metaclass=SingletonMeta):
                 #  get max speed (capacity)
                 max_speed = 0
                 if iface in iw_dict:
+                    launch_iw()
                     max_speed = iw_dict[iface].get('tx bitrate', None)
                     try:
                         max_speed = float(max_speed.strip(' MBit/s'))
