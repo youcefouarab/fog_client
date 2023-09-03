@@ -11,7 +11,7 @@ from iperf3 import Server, Client
 
 from model import Node
 from api import get_iperf3_target
-from utils import port_open, all_exit
+from utils import port_open
 from logger import console, file
 
 
@@ -61,7 +61,6 @@ def launch_iperf3(node: Node, listeners: list):
                 except:
                     console.error('iPerf3 client error on %s', name)
                     file.exception('iPerf3 client error on %s', name)
-                    all_exit()
 
 
 def _server_run(node: Node, listeners: list, event: Event):
