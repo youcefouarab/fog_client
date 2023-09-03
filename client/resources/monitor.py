@@ -112,7 +112,6 @@ class Monitor(metaclass=SingletonMeta):
         io = net_io_counters(pernic=True)
         percpu = self._const_host()
         while self._run:
-            sleep(self._cpu_period)
             percpu2 = self._var_host(percpu)
             # update network I/O stats for next iteration
             percpu = percpu2
@@ -166,6 +165,7 @@ class Monitor(metaclass=SingletonMeta):
 
         percpu_2 = None
         if IS_CONTAINER:
+            sleep(self._cpu_period)
             # get CPU usage again after sleep
             try:
                 percpu_2 = open(
@@ -175,12 +175,13 @@ class Monitor(metaclass=SingletonMeta):
                     if cpu != '\n':
                         cpu_usage += ((float(percpu_2[i]) - float(cpu)) /
                                       (self._cpu_period / NANO))
-                self.measures['cpu_free'] = float(self.measures['cpu_count']
-                                                  - cpu_usage)
+                self.measures['cpu_free'] = max(
+                    0.0, float(self.measures['cpu_count'] - cpu_usage))
             except:
                 file.exception('')
-                self.measures['cpu_free'] = float(self.measures['cpu_count'] - sum(
-                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
+                self.measures['cpu_free'] = max(
+                    0.0, float(self.measures['cpu_count'] - sum(
+                        cpu_percent(interval=self._cpu_period, percpu=True)) / 100))
             try:
                 self.measures['memory_free'] = float(
                     self.measures['memory_total'] - float(open(
@@ -190,8 +191,9 @@ class Monitor(metaclass=SingletonMeta):
                 self.measures['memory_free'] = float(
                     virtual_memory().available / MEBI)
         else:
-            self.measures['cpu_free'] = float(self.measures['cpu_count'] - sum(
-                cpu_percent(interval=self._cpu_period, percpu=True)) / 100)
+            self.measures['cpu_free'] = max(
+                0.0, float(self.measures['cpu_count'] - sum(
+                    cpu_percent(interval=self._cpu_period, percpu=True)) / 100))
             self.measures['memory_free'] = float(
                 virtual_memory().available / MEBI)
         self.measures['disk_free'] = float(disk_usage(ROOT_PATH).free / GIBI)
