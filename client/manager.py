@@ -126,7 +126,10 @@ class Manager(metaclass=SingletonMeta):
         from my_iperf3 import launch_iperf3
         launch_iperf3(self.node, self._iperf3_listeners)
 
-        Thread(target=self._update_specs).start()
+        daemon = True
+        if MODE_SWITCH:
+            daemon = False
+        Thread(target=self._update_specs, daemon=daemon).start()
 
         return True
 
