@@ -164,6 +164,7 @@ class Monitor(metaclass=SingletonMeta):
         # get host specs that are variable
         # (CPU free, RAM free, disk free)
 
+        percpu_2 = None
         if IS_CONTAINER:
             # get CPU usage again after sleep
             try:
@@ -194,6 +195,7 @@ class Monitor(metaclass=SingletonMeta):
             self.measures['memory_free'] = float(
                 virtual_memory().available / MEBI)
         self.measures['disk_free'] = float(disk_usage(ROOT_PATH).free / GIBI)
+        return percpu_2
 
     def _const_net(self):
         # get network specs that are constant
