@@ -102,10 +102,13 @@ class Monitor(metaclass=SingletonMeta):
         self.monitor_period = period
 
     def _start(self):
-        if IS_SWITCH:
-            launch_hostapd()
-        else:
-            launch_iw()
+        try:
+            if IS_SWITCH:
+                launch_hostapd()
+            else:
+                launch_iw()
+        except:
+            pass
         self._const_net()
         # get network I/O stats on each interface
         # by setting pernic to True
@@ -293,10 +296,14 @@ class Monitor(metaclass=SingletonMeta):
 
         # get network I/O stats on each interface again after period
         io_2 = net_io_counters(pernic=True)
-        launch_iw()
         ports = io
         if IS_SWITCH:
             ports = self._ovs_port_to_iface
+        else:
+            try:
+                launch_iw()
+            except:
+                pass
         for port in ports:
             iface = port
             if IS_SWITCH:
