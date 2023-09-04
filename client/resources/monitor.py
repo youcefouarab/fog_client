@@ -293,6 +293,7 @@ class Monitor(metaclass=SingletonMeta):
 
         # get network I/O stats on each interface again after period
         io_2 = net_io_counters(pernic=True)
+        launch_iw()
         ports = io
         if IS_SWITCH:
             ports = self._ovs_port_to_iface
@@ -314,7 +315,6 @@ class Monitor(metaclass=SingletonMeta):
                 #  get max speed (capacity)
                 max_speed = 0
                 if iface in iw_dict:
-                    launch_iw()
                     max_speed = iw_dict[iface].get('tx bitrate', None)
                     try:
                         max_speed = float(max_speed.strip(' MBit/s'))
